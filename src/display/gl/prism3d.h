@@ -23,6 +23,7 @@
 #ifndef PRISM3D_H
 #define PRISM3D_H
 
+#include <string>
 #include <vector>
 
 #include "gl-meta.h"
@@ -40,6 +41,46 @@ struct Box {
     float red, green, blue;
 };
 
+/**
+ * Uma malha vinda de arquivo, dividida por material.
+ *
+ * O OBJ separa a geometria em grupos, um por material, e cada material aponta
+ * uma textura. Como trocar de textura obriga a trocar de desenho, o grupo e a
+ * unidade natural: um buffer e uma chamada de desenho para cada.
+ */
+struct MeshGroup {
+    GLMeta::VAO vao;
+    VBO::ID vbo;
+    IBO::ID ibo;
+    int indexCount = 0;
+    TEX::ID texture;
+    bool textured = false;
+    /* Cor do material, usada quando nao ha textura. */
+    float red = 1.0f, green = 1.0f, blue = 1.0f;
+};
+
+class Mesh {
+public:
+    /**
+     * Le um OBJ, o MTL ao lado dele e as texturas que ele pedir.
+     *
+     * `unitsPerTile` converte a escala do arquivo para celulas do mapa. Modelo
+     * extraido de jogo de DS costuma vir com 16 unidades por tile.
+     */
+    bool load(const std::string &path, float unitsPerTile);
+    void fini();
+
+    std::vector<MeshGroup> groups;
+};
+
+/** Um modelo colocado no mundo. */
+struct Placement {
+    int mesh = -1;
+    Vec3 at;
+    float yaw = 0.0f;
+    float scale = 1.0f;
+};
+
 class Renderer {
 public:
     Renderer();
@@ -50,7 +91,12 @@ public:
     void fini();
     bool ready() const { return program != 0; }
 
-    void clear() { boxes.clear(); }
+    void clear() { boxes.clear(); placements.clear(); }
+
+    /** Carrega um modelo e devolve o indice dele, ou -1 se nao deu. */
+    int loadMesh(const char *path, float unitsPerTile);
+    void addPlacement(const Placement &placement) { placements.push_back(placement); }
+    size_t meshCount() const { return meshes.size(); }
     void add(const Box &box) { boxes.push_back(box); }
     size_t count() const { return boxes.size(); }
     Box &at(size_t index) { return boxes[index]; }
@@ -95,6 +141,7 @@ private:
     int uniformModel = -1;
     int uniformViewProjection = -1;
     int uniformColor = -1;
+    int uniformTextured = -1;
 
     Mat4 view = Mat4::identity();
     bool mapCamera = false;
@@ -105,6 +152,14 @@ private:
     Vec3 target = Vec3(0, 0, 0);
 
     std::vector<Box> boxes;
+    std::vector<Mesh *> meshes;
+    std::vector<Placement> placements;
+
+    /* Uma textura branca de um pixel, para o caminho sem textura usar o mesmo
+       shader em vez de existir um segundo programa so por causa disso. */
+    TEX::ID blank;
+
+    void drawGroup(const MeshGroup &group, const Mat4 &model);
 };
 
 /**

@@ -135,6 +135,56 @@ RB_METHOD(prism3DAddBox) {
     return Qnil;
 }
 
+/*
+ * Carrega um modelo de arquivo e devolve o indice dele.
+ *
+ *   id = Prism3D.load_model("Graphics/Models/lab/lab.obj", 16.0)
+ *
+ * O segundo argumento e quantas unidades do arquivo valem uma celula do mapa.
+ * Modelo extraido de jogo de DS costuma vir com 16. Devolve nil se o arquivo
+ * nao abriu ou nao tinha geometria, em vez de levantar excecao: o jogo deve
+ * continuar rodando sem o objeto.
+ */
+RB_METHOD(prism3DLoadModel) {
+    RB_UNUSED_PARAM;
+
+    const char *path;
+    double unitsPerTile = 16.0;
+    rb_get_args(argc, argv, "z|f", &path, &unitsPerTile RB_ARG_END);
+
+    GFX_LOCK;
+    const int id = needElement()->renderer().loadMesh(path, (float)unitsPerTile);
+    GFX_UNLOCK;
+
+    return id < 0 ? Qnil : rb_fix_new(id);
+}
+
+/*
+ *   Prism3D.add_model(id, x, y, z, yaw = 0.0, escala = 1.0)
+ *
+ * A posicao esta em celulas do mapa, com y para cima. O giro esta em radianos.
+ */
+RB_METHOD(prism3DAddModel) {
+    RB_UNUSED_PARAM;
+
+    int id;
+    double x, y, z;
+    double yaw = 0.0, scale = 1.0;
+    rb_get_args(argc, argv, "ifff|ff", &id, &x, &y, &z, &yaw, &scale RB_ARG_END);
+
+    Prism3D::Placement posto;
+    posto.mesh = id;
+    posto.at = Prism3D::Vec3((float)x, (float)y, (float)z);
+    posto.yaw = (float)yaw;
+    posto.scale = (float)scale;
+
+    GFX_LOCK;
+    needElement()->renderer().addPlacement(posto);
+    GFX_UNLOCK;
+
+    return Qnil;
+}
+
 RB_METHOD(prism3DClear) {
     RB_UNUSED_PARAM;
 
@@ -224,6 +274,8 @@ void prism3DBindingInit() {
     _rb_define_module_function(module, "camera", prism3DCamera);
     _rb_define_module_function(module, "map_camera", prism3DMapCamera);
     _rb_define_module_function(module, "add_box", prism3DAddBox);
+    _rb_define_module_function(module, "load_model", prism3DLoadModel);
+    _rb_define_module_function(module, "add_model", prism3DAddModel);
     _rb_define_module_function(module, "clear", prism3DClear);
     _rb_define_module_function(module, "count", prism3DCount);
     _rb_define_module_function(module, "z", prism3DGetZ);
