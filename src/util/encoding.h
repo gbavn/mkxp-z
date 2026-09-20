@@ -14,6 +14,7 @@
 #include "util/encoding.h"
 #include <iconv.h>
 #include <uchardet.h>
+#include "prism-trace.h"
 #include <errno.h>
 
 namespace Encoding {
@@ -23,7 +24,13 @@ static std::string getCharset(std::string &str) {
     uchardet_handle_data(ud, str.c_str(), str.length());
     uchardet_data_end(ud);
     
-    std::string ret(uchardet_get_charset(ud));
+    const char *guess = uchardet_get_charset(ud);
+    prismTrace((std::string("UCHARDET: adivinhou '") + (guess ? guess : "(nulo)") +
+                "' para \"" + str + "\"").c_str());
+
+    /* uchardet_get_charset pode devolver nulo, e construir std::string a
+       partir de nulo e comportamento indefinido. */
+    std::string ret(guess ? guess : "");
     uchardet_delete(ud);
     
     if (ret.empty())
@@ -37,8 +44,25 @@ static std::string convertString(std::string &str, const char *charset) {
         return std::string(str);
     }
     
+    prismTrace((std::string("ICONV: abrindo conversao de '") + charset +
+                "' para UTF-8").c_str());
+
     iconv_t cd = iconv_open("UTF-8", charset);
-    
+
+    /*
+     * iconv_open devolve (iconv_t)-1 quando nao conhece a codificacao, e o
+     * codigo original passava esse -1 direto para iconv(), que o trata como
+     * ponteiro e o dereferencia. Isso derruba o processo com violacao de
+     * acesso dentro da libiconv, sem mensagem nenhuma, no meio da leitura do
+     * Game.ini. Aqui vira excecao, que readGameINI ja captura para cair no
+     * titulo padrao.
+     */
+    if (cd == (iconv_t)-1) {
+        prismTrace("ICONV: iconv_open FALHOU, codificacao desconhecida");
+        throw Exception(Exception::MKXPError,
+                        "Unknown encoding (Guessed: %s)", charset);
+    }
+
     size_t inLen = str.size();
     size_t outLen = inLen * 4;
     std::string buf(outLen, '\0');
