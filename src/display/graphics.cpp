@@ -440,6 +440,16 @@ struct MovieOpenHandler : FileSystem::OpenHandler
 
 struct PingPong {
     TEXFBO rt[2];
+    /*
+     * Profundidade nos DOIS alvos, e nao so no corrente.
+     *
+     * O alvo ligado troca no meio do quadro: requestViewportRender chama
+     * swapRender quando uma viewport tem tom de cinza. Anexar profundidade a
+     * um so faria o 3D funcionar na maioria dos mapas e parar de ocluir, sem
+     * erro nenhum, justamente quando esse efeito acontecesse antes do passo
+     * 3D. Dois renderbuffers de 16 bits na resolucao da tela custam pouco.
+     */
+    RBO::ID depth[2];
     uint8_t srcInd, dstInd;
     int screenW, screenH;
     
@@ -449,14 +459,28 @@ struct PingPong {
             TEXFBO::init(rt[i]);
             TEXFBO::allocEmpty(rt[i], screenW, screenH);
             TEXFBO::linkFBO(rt[i]);
+            depth[i] = RBO::gen();
+            allocDepth(i, screenW, screenH);
             gl.ClearColor(0, 0, 0, 1);
             FBO::clear();
         }
     }
     
     ~PingPong() {
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < 2; ++i) {
             TEXFBO::fini(rt[i]);
+            RBO::del(depth[i]);
+        }
+    }
+    
+    /* Dimensiona o renderbuffer e o liga ao FBO daquele alvo. */
+    void allocDepth(int i, int width, int height) {
+        RBO::bind(depth[i]);
+        RBO::allocDepth(width, height);
+        RBO::unbind();
+        
+        FBO::bind(rt[i].fbo);
+        FBO::setDepthTarget(depth[i]);
     }
     
     TEXFBO &backBuffer() { return rt[srcInd]; }
@@ -468,8 +492,16 @@ struct PingPong {
         screenW = width;
         screenH = height;
         
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < 2; ++i) {
             TEXFBO::allocEmpty(rt[i], width, height);
+            /* A profundidade tem que acompanhar: renderbuffer com tamanho
+               diferente do anexo de cor deixa o FBO incompleto. */
+            allocDepth(i, width, height);
+        }
+
+        /* allocDepth deixa o FBO do ultimo alvo ligado; devolve o de
+           destino, que e o que o resto do codigo espera encontrar. */
+        bind();
     }
     
     void startRender() { bind(); }

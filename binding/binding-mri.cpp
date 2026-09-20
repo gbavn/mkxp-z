@@ -94,6 +94,7 @@ void tilemapVXBindingInit();
 void inputBindingInit();
 void audioBindingInit();
 void graphicsBindingInit();
+void prism3DBindingInit();
 
 void fileIntBindingInit();
 
@@ -177,6 +178,7 @@ static void mriBindingInit() {
     inputBindingInit();
     audioBindingInit();
     graphicsBindingInit();
+    prism3DBindingInit();
     
     fileIntBindingInit();
     

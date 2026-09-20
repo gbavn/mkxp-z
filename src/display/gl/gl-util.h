@@ -112,6 +112,49 @@ namespace TEX
 	}
 }
 
+/*
+** Renderbuffer, usado so pelo passo 3D do Prism.
+**
+** O motor e 2D e nunca precisou de profundidade: os alvos de tela sao criados
+** so com cor. O passo 3D precisa de um anexo de profundidade no alvo em que
+** desenha, senao ligar GL_DEPTH_TEST nao da erro nenhum e simplesmente nao
+** faz nada.
+*/
+namespace RBO
+{
+	DEF_GL_ID
+
+	inline ID gen()
+	{
+		ID id;
+		gl.GenRenderbuffers(1, &id.gl);
+
+		return id;
+	}
+
+	static inline void del(ID id)
+	{
+		gl.DeleteRenderbuffers(1, &id.gl);
+	}
+
+	static inline void bind(ID id)
+	{
+		gl.BindRenderbuffer(GL_RENDERBUFFER, id.gl);
+	}
+
+	static inline void unbind()
+	{
+		bind(ID(0));
+	}
+
+	/* 16 bits, que e o unico formato de profundidade que o GLES 2 garante.
+	   Desktop aceita o mesmo, entao nao ha ramo por plataforma. */
+	static inline void allocDepth(int width, int height)
+	{
+		gl.RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
+	}
+}
+
 /* Framebuffer Object */
 namespace FBO
 {
@@ -151,6 +194,13 @@ namespace FBO
 	static inline void clear()
 	{
 		gl.Clear(GL_COLOR_BUFFER_BIT);
+	}
+
+	/* Prism3D: liga o renderbuffer de profundidade ao FBO ligado agora. */
+	static inline void setDepthTarget(RBO::ID target)
+	{
+		gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+		                           GL_RENDERBUFFER, target.gl);
 	}
 }
 
