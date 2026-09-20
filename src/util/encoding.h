@@ -19,6 +19,43 @@
 
 namespace Encoding {
 
+/*
+ * Um texto ja em UTF-8 nao precisa de adivinhacao nenhuma.
+ *
+ * O uchardet erra, e erra feio em arquivo curto ou cheio de pontuacao: aqui
+ * ele olhou o mkxp.json, que e UTF-8 com comentarios e a palavra "Pokemon"
+ * acentuada, e concluiu MAC-CENTRALEUROPE. Como a conversao a partir de um
+ * palpite errado estraga o texto mesmo quando funciona, o caminho seguro e
+ * reconhecer UTF-8 valido e devolver como esta.
+ */
+static bool isValidUTF8(const std::string &str) {
+    const unsigned char *p = (const unsigned char *)str.c_str();
+    size_t left = str.size();
+
+    while (left > 0) {
+        unsigned char c = *p;
+        size_t extra;
+
+        if (c < 0x80)                       extra = 0;
+        else if ((c & 0xE0) == 0xC0)        extra = 1;
+        else if ((c & 0xF0) == 0xE0)        extra = 2;
+        else if ((c & 0xF8) == 0xF0)        extra = 3;
+        else                                return false;
+
+        if (extra >= left)
+            return false;
+
+        for (size_t i = 1; i <= extra; ++i)
+            if ((p[i] & 0xC0) != 0x80)
+                return false;
+
+        p += extra + 1;
+        left -= extra + 1;
+    }
+
+    return true;
+}
+
 static std::string getCharset(std::string &str) {
     uchardet_t ud = uchardet_new();
     uchardet_handle_data(ud, str.c_str(), str.length());
@@ -58,9 +95,32 @@ static std::string convertString(std::string &str, const char *charset) {
      * titulo padrao.
      */
     if (cd == (iconv_t)-1) {
-        prismTrace("ICONV: iconv_open FALHOU, codificacao desconhecida");
-        throw Exception(Exception::MKXPError,
-                        "Unknown encoding (Guessed: %s)", charset);
+        /*
+         * O uchardet e o libiconv nem sempre falam a mesma lingua: o primeiro
+         * devolveu 'MAC-CENTRALEUROPE' e o segundo so conhece esse mesmo
+         * conjunto escrito de outro jeito. Antes de desistir, tenta as formas
+         * mais comuns do mesmo nome.
+         */
+        std::string semTraco;
+        for (const char *c = charset; *c; ++c)
+            if (*c != '-' && *c != '_')
+                semTraco += *c;
+
+        cd = iconv_open("UTF-8", semTraco.c_str());
+
+        if (cd == (iconv_t)-1) {
+            /*
+             * Desistir aqui nao pode custar o arquivo inteiro. Quem chama isto
+             * inclui a leitura do mkxp.json, e la a excecao era capturada e
+             * trocada por "segue com os valores padrao", o que faz toda a
+             * configuracao do jogo sumir sem aviso. Devolver o texto como veio
+             * e pior que converter certo e melhor que perder tudo.
+             */
+            prismTrace("ICONV: iconv_open FALHOU nas duas formas, devolvendo o texto como esta");
+            return std::string(str);
+        }
+
+        prismTrace("ICONV: funcionou sem os tracos no nome");
     }
 
     size_t inLen = str.size();
@@ -86,6 +146,9 @@ static std::string convertString(std::string &str, const char *charset) {
 }
 
 static std::string convertString(std::string &str) {
+    if (isValidUTF8(str))
+        return std::string(str);
+
     return convertString(str, getCharset(str).c_str());
 }
 }
