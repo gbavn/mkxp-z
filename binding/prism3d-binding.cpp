@@ -84,6 +84,34 @@ RB_METHOD(prism3DCamera) {
     return Qnil;
 }
 
+/*
+ * A camera do mapa.
+ *
+ *   Prism3D.map_camera(rolagem_x, rolagem_z, tile = 32, altura = 1.0)
+ *
+ * A rolagem vem em tiles, e e o canto superior esquerdo visivel. No Essentials
+ * ela sai assim:
+ *
+ *   Prism3D.map_camera($game_map.display_x / 128.0, $game_map.display_y / 128.0)
+ *
+ * porque o display_x do RPG Maker conta em quartos de pixel: 32 pixels por
+ * tile vezes 4 da 128.
+ */
+RB_METHOD(prism3DMapCamera) {
+    RB_UNUSED_PARAM;
+
+    double scrollX, scrollZ;
+    double tile = 32.0, height = 1.0;
+    rb_get_args(argc, argv, "ff|ff", &scrollX, &scrollZ, &tile, &height RB_ARG_END);
+
+    GFX_LOCK;
+    needElement()->renderer().setMapCamera((float)scrollX, (float)scrollZ,
+                                           (float)tile, (float)height);
+    GFX_UNLOCK;
+
+    return Qnil;
+}
+
 RB_METHOD(prism3DAddBox) {
     RB_UNUSED_PARAM;
 
@@ -194,6 +222,7 @@ void prism3DBindingInit() {
     _rb_define_module_function(module, "start", prism3DStart);
     _rb_define_module_function(module, "stop", prism3DStop);
     _rb_define_module_function(module, "camera", prism3DCamera);
+    _rb_define_module_function(module, "map_camera", prism3DMapCamera);
     _rb_define_module_function(module, "add_box", prism3DAddBox);
     _rb_define_module_function(module, "clear", prism3DClear);
     _rb_define_module_function(module, "count", prism3DCount);

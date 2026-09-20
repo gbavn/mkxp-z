@@ -58,6 +58,18 @@ public:
     void setCamera(const Vec3 &eye, const Vec3 &target, float fovDegrees);
 
     /**
+     * Passa a desenhar com a projecao do mapa, em vez da camera livre.
+     *
+     * `scrollX` e `scrollZ` sao o canto superior esquerdo visivel do mapa, em
+     * tiles. `tilePixels` e o tamanho do tile na tela, 32 no RPG Maker XP, e
+     * serve para descobrir quantos tiles cabem no alvo. `heightOnScreen` diz
+     * quanto um tile de altura sobe na tela: 1 e a convencao dos tiles altos
+     * do RPG Maker, valores menores achatam.
+     */
+    void setMapCamera(float scrollX, float scrollZ, float tilePixels,
+                      float heightOnScreen);
+
+    /**
      * Desenha, dentro do ciclo de desenho do motor.
      *
      * `width` e `height` sao os do alvo corrente, so para a proporcao da
@@ -85,6 +97,9 @@ private:
     int uniformColor = -1;
 
     Mat4 view = Mat4::identity();
+    bool mapCamera = false;
+    float mapScrollX = 0.0f, mapScrollZ = 0.0f;
+    float mapTilePixels = 32.0f, mapHeight = 1.0f;
     float fov = 45.0f;
     Vec3 eye = Vec3(0, 3, 8);
     Vec3 target = Vec3(0, 0, 0);

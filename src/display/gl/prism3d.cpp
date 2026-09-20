@@ -229,6 +229,16 @@ void Renderer::setCamera(const Vec3 &newEye, const Vec3 &newTarget, float fovDeg
     target = newTarget;
     fov = fovDegrees;
     view = Mat4::lookAt(eye, target, Vec3(0, 1, 0));
+    mapCamera = false;
+}
+
+void Renderer::setMapCamera(float scrollX, float scrollZ, float tilePixels,
+                            float heightOnScreen) {
+    mapScrollX = scrollX;
+    mapScrollZ = scrollZ;
+    mapTilePixels = tilePixels > 0.0f ? tilePixels : 32.0f;
+    mapHeight = heightOnScreen;
+    mapCamera = true;
 }
 
 void Renderer::draw(int width, int height, bool clearDepth) {
@@ -278,10 +288,24 @@ void Renderer::draw(int width, int height, bool clearDepth) {
     gl.FrontFace(GL_CCW);
     glState.blend.pushSet(false);
 
-    const float aspect = height > 0 ? (float)width / (float)height : 1.0f;
-    const Mat4 projection =
-        Mat4::perspective(fov * 3.14159265f / 180.0f, aspect, 0.1f, 200.0f);
-    const Mat4 viewProjection = projection * view;
+    Mat4 viewProjection;
+
+    if (mapCamera)
+    {
+        /* Alcance folgado: o maior mapa do RPG Maker XP tem 500 tiles de
+           lado, e a profundidade so precisa caber nele. */
+        viewProjection = Mat4::mapOblique((float)width / mapTilePixels,
+                                          (float)height / mapTilePixels,
+                                          mapScrollX, mapScrollZ,
+                                          mapHeight, 1024.0f);
+    }
+    else
+    {
+        const float aspect = height > 0 ? (float)width / (float)height : 1.0f;
+        const Mat4 projection =
+            Mat4::perspective(fov * 3.14159265f / 180.0f, aspect, 0.1f, 200.0f);
+        viewProjection = projection * view;
+    }
 
     glState.program.pushSet(program);
     gl.UniformMatrix4fv(uniformViewProjection, 1, GL_FALSE, viewProjection.m);

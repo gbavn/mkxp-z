@@ -128,6 +128,58 @@ struct Mat4 {
         return out;
     }
 
+    /**
+     * A projecao do mapa: obliqua, com o chao 1 para 1 com a tela.
+     *
+     * O mapa do RPG Maker nao tem fuga de ponto e nao comprime nada: um tile e
+     * um quadrado de 32 por 32 pixels na tela, venha ele do topo ou do rodape
+     * do mapa. Camera de verdade a 45 graus comprimiria a profundidade por
+     * cos(45), e objetos ao sul iriam subindo em relacao aos tiles em que
+     * pisam. Por isso aqui nao ha camera girada: ha cisalhamento.
+     *
+     * O mundo esta em tiles, com x para leste, z para o sul e y para cima. A
+     * conta e esta:
+     *
+     *     tela_x = x - rolagemX
+     *     tela_y = (z - rolagemZ) - y * alturaNaTela
+     *
+     * Com `alturaNaTela` igual a 1, um tile de altura sobe 32 pixels, que e a
+     * convencao dos tiles altos do RPG Maker. Valores menores achatam o
+     * objeto, como se a camera estivesse mais alta.
+     *
+     * A profundidade acompanha a direcao de projecao, que e (0, 1, alturaNaTela):
+     * quanto mais ao sul e mais alto, mais perto do observador. `alcance` e a
+     * profundidade total em tiles, e so precisa ser maior que o mapa.
+     */
+    static Mat4 mapOblique(float tilesWide, float tilesHigh,
+                           float scrollX, float scrollZ,
+                           float heightOnScreen, float range) {
+        Mat4 out = {};
+
+        const float sx = 2.0f / tilesWide;
+        const float sy = 2.0f / tilesHigh;
+
+        /*
+         * Coluna-maior: m[coluna * 4 + linha]. As tres linhas sao
+         *
+         *   x = sx * (x - rolagemX) - 1
+         *   y = 1 - sy * ((z - rolagemZ) - altura * y)
+         *   z = -(y + altura * (z - rolagemZ)) / alcance
+         */
+        out.m[0]  = sx;                 /* linha 0, coluna x */
+        out.m[5]  = sy * heightOnScreen;/* linha 1, coluna y */
+        out.m[9]  = -sy;                /* linha 1, coluna z */
+        out.m[6]  = -1.0f / range;      /* linha 2, coluna y */
+        out.m[10] = -heightOnScreen / range;
+
+        out.m[12] = -1.0f - sx * scrollX;
+        out.m[13] = 1.0f + sy * scrollZ;
+        out.m[14] = heightOnScreen * scrollZ / range;
+        out.m[15] = 1.0f;
+
+        return out;
+    }
+
     /** Camera olhando de `eye` para `target`, com `up` definindo a inclinacao. */
     static Mat4 lookAt(const Vec3 &eye, const Vec3 &target, const Vec3 &up) {
         const Vec3 forward = normalize(target - eye);
