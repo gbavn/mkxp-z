@@ -21,6 +21,7 @@
 */
 
 #include "binding-util.h"
+#include "debugwriter.h"
 #include "graphics.h"
 #include "prism3d.h"
 #include "sharedstate.h"
@@ -187,6 +188,7 @@ RB_METHOD(prism3DSetDepth) {
 }
 
 void prism3DBindingInit() {
+    Debug() << "Prism3D: registrando o modulo Ruby";
     VALUE module = rb_define_module("Prism3D");
 
     _rb_define_module_function(module, "start", prism3DStart);

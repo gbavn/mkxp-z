@@ -450,17 +450,22 @@ struct PingPong {
      * 3D. Dois renderbuffers de 16 bits na resolucao da tela custam pouco.
      */
     RBO::ID depth[2];
+    bool depthSupported;
     uint8_t srcInd, dstInd;
     int screenW, screenH;
     
     PingPong(int screenW, int screenH)
-    : srcInd(0), dstInd(1), screenW(screenW), screenH(screenH) {
+    : depthSupported(checkDepthSupport()),
+      srcInd(0), dstInd(1), screenW(screenW), screenH(screenH) {
+        Debug() << "Prism3D: PingPong nasce em" << screenW << "x" << screenH;
         for (int i = 0; i < 2; ++i) {
             TEXFBO::init(rt[i]);
             TEXFBO::allocEmpty(rt[i], screenW, screenH);
             TEXFBO::linkFBO(rt[i]);
-            depth[i] = RBO::gen();
-            allocDepth(i, screenW, screenH);
+            if (depthSupported) {
+                depth[i] = RBO::gen();
+                allocDepth(i, screenW, screenH);
+            }
             gl.ClearColor(0, 0, 0, 1);
             FBO::clear();
         }
@@ -469,18 +474,45 @@ struct PingPong {
     ~PingPong() {
         for (int i = 0; i < 2; ++i) {
             TEXFBO::fini(rt[i]);
-            RBO::del(depth[i]);
+            if (depthSupported)
+                RBO::del(depth[i]);
         }
     }
     
     /* Dimensiona o renderbuffer e o liga ao FBO daquele alvo. */
     void allocDepth(int i, int width, int height) {
+        if (!depthSupported)
+            return;
+
         RBO::bind(depth[i]);
         RBO::allocDepth(width, height);
         RBO::unbind();
         
         FBO::bind(rt[i].fbo);
         FBO::setDepthTarget(depth[i]);
+
+        const GLenum status = gl.CheckFramebufferStatus(GL_FRAMEBUFFER);
+        Debug() << "Prism3D: alvo" << i << "em" << width << "x" << height
+                << "| FBO" << (status == GL_FRAMEBUFFER_COMPLETE ? "completo"
+                                                                 : "INCOMPLETO")
+                << "| status" << (int)status;
+    }
+
+    /*
+     * O carregador de funcoes de GL (gl-fun.cpp:71) nao checa nada: funcao que
+     * o driver nao tem vira ponteiro nulo, e chamar um ponteiro nulo derruba o
+     * processo sem mensagem. As de renderbuffer so existem com
+     * ARB_framebuffer_object ou a variante EXT, entao aqui elas sao conferidas
+     * antes de qualquer uso. Sem elas o jogo roda igual, so sem o passo 3D.
+     */
+    static bool checkDepthSupport() {
+        const bool ok = gl.GenRenderbuffers && gl.DeleteRenderbuffers &&
+                        gl.BindRenderbuffer && gl.RenderbufferStorage &&
+                        gl.FramebufferRenderbuffer && gl.CheckFramebufferStatus;
+
+        Debug() << "Prism3D: funcoes de renderbuffer" << (ok ? "presentes"
+                                                             : "AUSENTES");
+        return ok;
     }
     
     TEXFBO &backBuffer() { return rt[srcInd]; }
@@ -489,6 +521,7 @@ struct PingPong {
     
     /* Better not call this during render cycles */
     void resize(int width, int height) {
+        Debug() << "Prism3D: PingPong redimensiona para" << width << "x" << height;
         screenW = width;
         screenH = height;
         

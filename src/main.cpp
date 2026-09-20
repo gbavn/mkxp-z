@@ -255,6 +255,27 @@ int main(int argc, char *argv[]) {
     Config conf;
     conf.read(argc, argv);
 
+    /*
+     * Diagnostico em arquivo.
+     *
+     * No Windows o executavel e do subsistema grafico (meson.build:195), entao
+     * ele nasce sem console e o redirecionamento do cmd nao pega a saida. Com
+     * MKXPZ_LOG_FILE apontando para um caminho, tudo que o Debug() escreve em
+     * std::cerr vai para la. Sem buffer, senao um crash leva junto justamente
+     * as ultimas linhas, que sao as que interessam.
+     */
+    {
+        const char *logPath = SDL_getenv("MKXPZ_LOG_FILE");
+        if (logPath && *logPath) {
+            if (freopen(logPath, "w", stderr)) {
+                setvbuf(stderr, 0, _IONBF, 0);
+                /* Com o log em arquivo o console proprio nao entra: ele
+                   reabriria stderr em CONOUT$ e desfaria isto. */
+                conf.winConsole = false;
+            }
+        }
+    }
+
 #if defined(__WIN32__)
     // Create a debug console in debug mode
     if (conf.winConsole) {
