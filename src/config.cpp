@@ -194,6 +194,7 @@ void Config::read(int argc, char *argv[]) {
         {"fontScale", 0.0f},
         {"fontKerning", true},
         {"fontHinting", 3}, // TTF_HINTING_NONE
+        {"legacyFontMetrics", false},
         {"fontHeightReporting", 0},
         {"fontOutlineCrop", true},
         {"rubyLoadpath", json::array({})},
@@ -332,6 +333,7 @@ try { exp } catch (...) {}
     SET_OPT(fontScale, number);
     SET_OPT(fontKerning, boolean);
     SET_OPT(fontHinting, integer);
+    SET_OPT(legacyFontMetrics, boolean);
     SET_OPT(fontHeightReporting, integer);
     SET_OPT(fontOutlineCrop, boolean);
     fillStringVec(opts["rubyLoadpath"], rubyLoadpaths);

@@ -452,6 +452,14 @@
     // (default: 3)
     // "fontHinting": 3,
 
+    // Opens fonts the way mkxp-z did up to commit c9378cf: at 90% of the
+    // requested size, instead of computing the pixel size from the font's VDMX
+    // table the way Windows does. The newer method is more correct, but it
+    // produces slightly larger glyphs, which clips text in games whose layout
+    // was built against the older behaviour (Pokémon Essentials v21.1 is one).
+    // (default: false)
+    // "legacyFontMetrics": false,
+
     // Controls the algorithm for reporting the height of rendered text.
     // 0: Nominal (TTF_FontHeight); matches RGSS behavior; may cut off bottoms of some characters.
     // 1: Rendered (TTF_SizeUTF8); deviates from RGSS; may look better.

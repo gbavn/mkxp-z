@@ -30,6 +30,8 @@
 #include "encoding.h"
 
 #include "debugwriter.h"
+#include "prism-trace.h"
+#include <stdio.h>
 
 #include <string>
 #include <utility>
@@ -148,6 +150,7 @@ struct SharedFontStatePrivate
 	float fontScale;
 	bool fontKerning;
 	int fontHinting;
+	bool legacyFontMetrics;
 };
 
 SharedFontState::SharedFontState(const Config &conf)
@@ -176,6 +179,7 @@ SharedFontState::SharedFontState(const Config &conf)
 	}
 	p->fontKerning = conf.fontKerning;
 	p->fontHinting = conf.fontHinting;
+	p->legacyFontMetrics = conf.legacyFontMetrics;
 }
 
 SharedFontState::~SharedFontState()
@@ -609,8 +613,40 @@ _TTF_Font *SharedFontState::getFont(std::string family,
 	if (font)
 	{
 		FT_Face face = TTF_FONT_TO_FT_FACE(font);
+		/*
+		 * Modo de compatibilidade com o mkxp-z de 2023.
+		 *
+		 * Ate o commit c9378cf, que e o que o Pokemon Essentials v21.1 declara
+		 * esperar, a fonte era aberta assim, e so:
+		 *
+		 *     font = TTF_OpenFontRW(ops, 1, size * 0.90f);
+		 *
+		 * Noventa por cento do tamanho pedido, truncado para inteiro. Depois
+		 * disso o motor passou a calcular o ppem do jeito que o Windows
+		 * calcula, lendo a tabela VDMX da fonte. E mais correto, e da glifo
+		 * maior: medindo aqui, a mesma frase ficou 4 por cento mais larga e um
+		 * pixel mais alta. Jogo que dimensionou as caixas de texto contra o
+		 * comportamento antigo passa a cortar texto.
+		 *
+		 * Em vez de congelar o motor inteiro em 2023, a regra antiga vira uma
+		 * opcao. Assim o mesmo binario faz os dois, e da para comparar sem
+		 * recompilar.
+		 */
+		if (p->legacyFontMetrics)
+		{
+			if (ppem == 0)
+			{
+				ppem = std::max<int>((int)(size * 0.90f), 1);
+				ppemMult = std::max<int>(ppem * hiresMult, 1);
+			}
+			if (TTF_SetFontSize(font, ppemMult))
+			{
+				TTF_CloseFont(font);
+				font = 0;
+			}
+		}
 		/* This is should always be true, but we may as well check... */
-		if (FT_IS_SCALABLE( face ))
+		else if (FT_IS_SCALABLE( face ))
 		{
 			if (ppem == 0)
 			{
@@ -647,6 +683,15 @@ _TTF_Font *SharedFontState::getFont(std::string family,
 		{
 			/* RGSS doesn't use font hinting */
 			TTF_SetFontHinting(font, p->fontHinting);
+
+			char rastro[256];
+			snprintf(rastro, sizeof(rastro),
+			         "FONTE: %s | pedido %d | ppem %d | legado %d | altura %d | acima %d | abaixo %d",
+			         family.empty() ? "(embutida)" : family.c_str(),
+			         size, ppem, p->legacyFontMetrics ? 1 : 0,
+			         TTF_FontHeight(font), TTF_FontAscent(font),
+			         TTF_FontDescent(font));
+			prismTrace(rastro);
 		}
 	}
 	

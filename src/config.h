@@ -121,6 +121,8 @@ struct Config {
     float fontScale;
     bool fontKerning;
     int fontHinting;
+    /* Abre a fonte com a regra antiga do mkxp-z, size * 0.90 */
+    bool legacyFontMetrics;
     int fontHeightReporting;
     bool fontOutlineCrop;
     
