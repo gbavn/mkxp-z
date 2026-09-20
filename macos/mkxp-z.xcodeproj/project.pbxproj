@@ -1495,6 +1495,7 @@
 				3B012198261544A0001E574A /* string-util.h */,
 				3B10ED402568E95D00372D13 /* util.h */,
 				3B10EE1F2569348E00372D13 /* json5pp.hpp */,
+				3D00000000000000000000A5 /* prism-trace.cpp */,
 				968CB90E288E46F4008BC75D /* rapidcsv.h */,
 			);
 			path = util;
@@ -1616,7 +1617,6 @@
 				3B10ED872568E95E00372D13 /* gl-fun.h */,
 				3B10ED882568E95E00372D13 /* gl-meta.cpp */,
 				3D00000000000000000000A1 /* prism3d.cpp */,
-				3D00000000000000000000A5 /* prism-trace.cpp */,
 				3D00000000000000000000A2 /* prism3d.h */,
 				3D00000000000000000000A3 /* prism3d-math.h */,
 				3B10ED892568E95E00372D13 /* tileatlasvx.cpp */,
