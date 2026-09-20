@@ -38,6 +38,15 @@ typedef void (APIENTRYP _PFNGLGETINTEGERVPROC) (GLenum pname, GLint *params);
 typedef void (APIENTRYP _PFNGLPIXELSTOREIPROC) (GLenum pname, GLint param);
 typedef void (APIENTRYP _PFNGLREADPIXELSPROC) (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels);
 typedef void (APIENTRYP _PFNGLENABLEPROC) (GLenum cap);
+/* Prism3D: profundidade, face traseira e consulta de estado. O motor e 2D e
+   nunca precisou destas; o passo 3D precisa. */
+typedef GLboolean (APIENTRYP _PFNGLISENABLEDPROC) (GLenum cap);
+typedef void (APIENTRYP _PFNGLGETBOOLEANVPROC) (GLenum pname, GLboolean *params);
+typedef void (APIENTRYP _PFNGLDEPTHFUNCPROC) (GLenum func);
+typedef void (APIENTRYP _PFNGLDEPTHMASKPROC) (GLboolean flag);
+typedef void (APIENTRYP _PFNGLCULLFACEPROC) (GLenum mode);
+typedef void (APIENTRYP _PFNGLFRONTFACEPROC) (GLenum mode);
+typedef void (APIENTRYP _PFNGLUNIFORM3FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
 typedef void (APIENTRYP _PFNGLDISABLEPROC) (GLenum cap);
 typedef void (APIENTRYP _PFNGLSCISSORPROC) (GLint x, GLint y, GLsizei width, GLsizei height);
 typedef void (APIENTRYP _PFNGLVIEWPORTPROC) (GLint x, GLint y, GLsizei width, GLsizei height);
@@ -106,7 +115,34 @@ typedef void (APIENTRYP _PFNGLGENFRAMEBUFFERSPROC) (GLsizei n, GLuint* framebuff
 typedef void (APIENTRYP _PFNGLDELETEFRAMEBUFFERSPROC) (GLsizei n, const GLuint* framebuffers);
 typedef void (APIENTRYP _PFNGLBINDFRAMEBUFFERPROC) (GLenum target, GLuint framebuffer);
 typedef void (APIENTRYP _PFNGLFRAMEBUFFERTEXTURE2DPROC) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+/* Prism3D: renderbuffer de profundidade anexado aos alvos de tela. */
+typedef void (APIENTRYP _PFNGLGENRENDERBUFFERSPROC) (GLsizei n, GLuint *renderbuffers);
+typedef void (APIENTRYP _PFNGLDELETERENDERBUFFERSPROC) (GLsizei n, const GLuint *renderbuffers);
+typedef void (APIENTRYP _PFNGLBINDRENDERBUFFERPROC) (GLenum target, GLuint renderbuffer);
+typedef void (APIENTRYP _PFNGLRENDERBUFFERSTORAGEPROC) (GLenum target, GLenum internalformat, GLsizei width, GLsizei height);
+typedef void (APIENTRYP _PFNGLFRAMEBUFFERRENDERBUFFERPROC) (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
+typedef GLenum (APIENTRYP _PFNGLCHECKFRAMEBUFFERSTATUSPROC) (GLenum target);
 typedef void (APIENTRYP _PFNGLBLITFRAMEBUFFERPROC) (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
+
+/*
+** Constantes de renderbuffer e profundidade.
+**
+** O SDL_opengl.h de sistemas antigos as vezes para no GL 1.x e nao traz
+** estas, entao definimos na mao quando faltam, no mesmo padrao que o arquivo
+** ja usa para GL_NUM_EXTENSIONS e companhia.
+*/
+#ifndef GL_RENDERBUFFER
+#define GL_RENDERBUFFER 0x8D41
+#endif
+#ifndef GL_DEPTH_ATTACHMENT
+#define GL_DEPTH_ATTACHMENT 0x8D00
+#endif
+#ifndef GL_DEPTH_COMPONENT16
+#define GL_DEPTH_COMPONENT16 0x81A5
+#endif
+#ifndef GL_FRAMEBUFFER_COMPLETE
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+#endif
 
 /* Vertex array object */
 typedef void (APIENTRYP _PFNGLGENVERTEXARRAYSPROC) (GLsizei n, GLuint* arrays);
@@ -136,6 +172,12 @@ typedef void (APIENTRYP _PFNGLRELEASESHADERCOMPILERPROC) (void);
 	GL_FUN(ReadPixels, _PFNGLREADPIXELSPROC) \
 	GL_FUN(Enable, _PFNGLENABLEPROC) \
 	GL_FUN(Disable, _PFNGLDISABLEPROC) \
+	GL_FUN(IsEnabled, _PFNGLISENABLEDPROC) \
+	GL_FUN(GetBooleanv, _PFNGLGETBOOLEANVPROC) \
+	GL_FUN(DepthFunc, _PFNGLDEPTHFUNCPROC) \
+	GL_FUN(DepthMask, _PFNGLDEPTHMASKPROC) \
+	GL_FUN(CullFace, _PFNGLCULLFACEPROC) \
+	GL_FUN(FrontFace, _PFNGLFRONTFACEPROC) \
 	GL_FUN(Scissor, _PFNGLSCISSORPROC) \
 	GL_FUN(Viewport, _PFNGLVIEWPORTPROC) \
 	GL_FUN(BlendFunc, _PFNGLBLENDFUNCPROC) \
@@ -177,6 +219,7 @@ typedef void (APIENTRYP _PFNGLRELEASESHADERCOMPILERPROC) (void);
 	GL_FUN(GetUniformLocation, _PFNGLGETUNIFORMLOCATIONPROC) \
 	GL_FUN(Uniform1f, _PFNGLUNIFORM1FPROC) \
 	GL_FUN(Uniform2f, _PFNGLUNIFORM2FPROC) \
+	GL_FUN(Uniform3f, _PFNGLUNIFORM3FPROC) \
 	GL_FUN(Uniform4f, _PFNGLUNIFORM4FPROC) \
 	GL_FUN(Uniform1i, _PFNGLUNIFORM1IPROC) \
 	GL_FUN(Uniform1iv, _PFNGLUNIFORM1IVPROC) \
@@ -195,7 +238,13 @@ typedef void (APIENTRYP _PFNGLRELEASESHADERCOMPILERPROC) (void);
 	GL_FUN(GenFramebuffers, _PFNGLGENFRAMEBUFFERSPROC) \
 	GL_FUN(DeleteFramebuffers, _PFNGLDELETEFRAMEBUFFERSPROC) \
 	GL_FUN(BindFramebuffer, _PFNGLBINDFRAMEBUFFERPROC) \
-	GL_FUN(FramebufferTexture2D, _PFNGLFRAMEBUFFERTEXTURE2DPROC)
+	GL_FUN(FramebufferTexture2D, _PFNGLFRAMEBUFFERTEXTURE2DPROC) \
+	GL_FUN(GenRenderbuffers, _PFNGLGENRENDERBUFFERSPROC) \
+	GL_FUN(DeleteRenderbuffers, _PFNGLDELETERENDERBUFFERSPROC) \
+	GL_FUN(BindRenderbuffer, _PFNGLBINDRENDERBUFFERPROC) \
+	GL_FUN(RenderbufferStorage, _PFNGLRENDERBUFFERSTORAGEPROC) \
+	GL_FUN(FramebufferRenderbuffer, _PFNGLFRAMEBUFFERRENDERBUFFERPROC) \
+	GL_FUN(CheckFramebufferStatus, _PFNGLCHECKFRAMEBUFFERSTATUSPROC)
 
 #define GL_FBO_BLIT_FUN \
 	GL_FUN(BlitFramebuffer, _PFNGLBLITFRAMEBUFFERPROC)

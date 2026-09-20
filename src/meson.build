@@ -152,6 +152,7 @@ main_source = files(
     'display/gl/gl-debug.cpp',
     'display/gl/gl-fun.cpp',
     'display/gl/gl-meta.cpp',
+    'display/gl/prism3d.cpp',
     'display/gl/glstate.cpp',
     'display/gl/scene.cpp',
     'display/gl/shader.cpp',
