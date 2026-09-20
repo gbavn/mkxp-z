@@ -163,7 +163,13 @@ struct ObjMaterial {
 static bool readWholeFile(const std::string &path, std::string &out) {
     SDL_RWops ops;
     try {
-        shState->fileSystem().openReadRaw(ops, path.c_str(), true);
+        /* O ultimo argumento e `freeOnClose`, e ele PRECISA ser false aqui.
+           Com true o motor instala SDL_RWopsCloseFree como fechamento, e essa
+           funcao chama SDL_FreeRW no ponteiro: como `ops` esta na pilha, o
+           alocador receberia um endereco de pilha e o processo morreria sem
+           exececao, sem caixa de erro e sem minidump. O unico lugar do motor
+           que passa true e o font.cpp, e la o RWops vem de SDL_AllocRW. */
+        shState->fileSystem().openReadRaw(ops, path.c_str(), false);
     } catch (const Exception &e) {
         prismTrace((std::string("OBJ: nao abriu ") + path).c_str());
         return false;
@@ -177,7 +183,14 @@ static bool readWholeFile(const std::string &path, std::string &out) {
 
     out.resize((size_t)size);
     const size_t lido = SDL_RWread(&ops, &out[0], 1, (size_t)size);
+
+    /* Rastro dos dois lados do fechamento: e ele que prova por onde o processo
+       passou, em vez de deixar a conclusao por deducao. Sai quando o carregador
+       estiver de pe. */
+    prismTrace("OBJ: antes do SDL_RWclose");
     SDL_RWclose(&ops);
+    prismTrace("OBJ: depois do SDL_RWclose");
+
     out.resize(lido);
 
     return lido > 0;
@@ -244,7 +257,10 @@ static TEX::ID loadTexture(const std::string &path, bool &ok) {
 
     SDL_RWops ops;
     try {
-        shState->fileSystem().openReadRaw(ops, path.c_str(), true);
+        /* false pelo mesmo motivo do readWholeFile: `ops` esta na pilha. O
+           IMG_LoadTyped_RW abaixo fecha o RWops por conta propria, pelo `1` do
+           freesrc, inclusive quando a decodificacao falha. */
+        shState->fileSystem().openReadRaw(ops, path.c_str(), false);
     } catch (const Exception &e) {
         prismTrace((std::string("OBJ: textura ausente ") + path).c_str());
         return id;
