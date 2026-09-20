@@ -235,13 +235,25 @@ void Renderer::draw(int width, int height, bool clearDepth) {
     if (!program || boxes.empty())
         return;
 
-    /* Profundidade e face traseira o GLState do motor nao conhece, entao
-       salvamos na mao. Mistura e programa ele conhece, e vao por push/pop,
-       senao o cache dele ficaria mentindo sobre o estado real. */
-    const GLboolean hadDepthTest = gl.IsEnabled(GL_DEPTH_TEST);
-    const GLboolean hadCullFace = gl.IsEnabled(GL_CULL_FACE);
-    GLboolean hadDepthMask = GL_TRUE;
-    gl.GetBooleanv(GL_DEPTH_WRITEMASK, &hadDepthMask);
+    /*
+     * Nao perguntamos o estado ao OpenGL, de proposito.
+     *
+     * A versao anterior fazia isto a cada quadro:
+     *
+     *     gl.IsEnabled(GL_DEPTH_TEST);
+     *     gl.IsEnabled(GL_CULL_FACE);
+     *     gl.GetBooleanv(GL_DEPTH_WRITEMASK, &mask);
+     *
+     * Toda chamada de consulta ao OpenGL obriga a CPU a esperar a GPU
+     * terminar a fila para poder responder. Sao tres paradas por quadro para
+     * perguntar algo que ja sabemos: profundidade e face traseira o motor
+     * nunca liga, porque ele e um compositor 2D e o GLState dele nem conhece
+     * essas propriedades (scene.h:88-104). Entao o estado a devolver e
+     * constante, e restaurar as cegas custa zero.
+     *
+     * Se um dia o motor passar a usar profundidade por conta propria, isto
+     * aqui quebra em silencio. E o preco, e esta escrito para quem vier.
+     */
 
     if (clearDepth) {
         /* glClear respeita o teste de tesoura, e o ciclo de desenho do motor
@@ -285,17 +297,16 @@ void Renderer::draw(int width, int height, bool clearDepth) {
         gl.DrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_SHORT, 0);
     }
 
-    /* Devolve tudo. A ordem importa: VAO por ultimo, senao um bind de buffer
-       do motor cairia dentro do nosso VAO. */
+    /* Devolve tudo ao que o compositor 2D espera encontrar. A ordem importa:
+       VAO por ultimo, senao um bind de buffer do motor cairia dentro do
+       nosso VAO. */
     GLMeta::vaoUnbind(vao);
     glState.program.pop();
     glState.blend.pop();
 
-    if (!hadCullFace)
-        gl.Disable(GL_CULL_FACE);
-    gl.DepthMask(hadDepthMask);
-    if (!hadDepthTest)
-        gl.Disable(GL_DEPTH_TEST);
+    gl.Disable(GL_CULL_FACE);
+    gl.DepthMask(GL_TRUE);
+    gl.Disable(GL_DEPTH_TEST);
 }
 
 Element::Element(Scene &scene, int z)
