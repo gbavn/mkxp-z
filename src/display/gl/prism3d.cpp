@@ -123,6 +123,7 @@ static GLuint compile(GLenum type, const char *source) {
         char log[1024] = {};
         gl.GetShaderInfoLog(shader, sizeof(log) - 1, 0, log);
         std::fprintf(stderr, "Prism3D: shader nao compilou: %s\n", log);
+        prismTrace((std::string("SHADER nao compilou: ") + log).c_str());
         gl.DeleteShader(shader);
         return 0;
     }
@@ -280,6 +281,8 @@ static TEX::ID loadTexture(const std::string &path, bool &ok) {
 }
 
 bool Mesh::load(const std::string &path, float unitsPerTile) {
+    prismTrace((std::string("OBJ: comecando ") + path).c_str());
+
     std::string texto;
     if (!readWholeFile(path, texto))
         return false;
@@ -532,6 +535,7 @@ bool Renderer::init() {
         char log[1024] = {};
         gl.GetProgramInfoLog(program, sizeof(log) - 1, 0, log);
         std::fprintf(stderr, "Prism3D: programa nao ligou: %s\n", log);
+        prismTrace((std::string("SHADER nao ligou: ") + log).c_str());
         gl.DeleteProgram(program);
         program = 0;
         return false;
@@ -620,6 +624,7 @@ bool Renderer::init() {
     vao.ibo = ibo;
     GLMeta::vaoInit(vao);
 
+    prismTrace("RENDER: shader e cubo prontos");
     return true;
 }
 

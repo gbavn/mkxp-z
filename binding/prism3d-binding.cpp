@@ -22,6 +22,9 @@
 
 #include "binding-util.h"
 #include "debugwriter.h"
+#include "prism-trace.h"
+#include "exception.h"
+#include <string>
 #include "graphics.h"
 #include "prism3d.h"
 #include "sharedstate.h"
@@ -40,6 +43,8 @@ RB_METHOD(prism3DStart) {
 
     int z = 0;
     rb_get_args(argc, argv, "|i", &z RB_ARG_END);
+
+    prismTrace("BINDING: start");
 
     GFX_LOCK;
     if (!element) {
@@ -152,9 +157,29 @@ RB_METHOD(prism3DLoadModel) {
     double unitsPerTile = 16.0;
     rb_get_args(argc, argv, "z|f", &path, &unitsPerTile RB_ARG_END);
 
+    prismTrace((std::string("BINDING: load_model ") + path).c_str());
+
+    /*
+     * A fronteira com o Ruby nao pode deixar excecao de C++ passar: o
+     * interpretador nao sabe o que fazer com ela e o processo cai sem
+     * mensagem. Carregar modelo mexe com arquivo, e arquivo falha de muitos
+     * jeitos, entao aqui vira nil e o jogo segue sem o objeto.
+     */
+    int id = -1;
     GFX_LOCK;
-    const int id = needElement()->renderer().loadMesh(path, (float)unitsPerTile);
+    try {
+        id = needElement()->renderer().loadMesh(path, (float)unitsPerTile);
+    } catch (const Exception &e) {
+        prismTrace((std::string("BINDING: load_model falhou: ") + e.msg).c_str());
+        id = -1;
+    } catch (...) {
+        prismTrace("BINDING: load_model falhou por motivo desconhecido");
+        id = -1;
+    }
     GFX_UNLOCK;
+
+    prismTrace(id < 0 ? "BINDING: load_model devolveu nil"
+                      : "BINDING: load_model devolveu um indice");
 
     return id < 0 ? Qnil : rb_fix_new(id);
 }
