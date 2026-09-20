@@ -20,6 +20,7 @@
  */
 
 #include "gl-fun.h"
+#include "prism-trace.h"
 
 #include "boost-hash.h"
 #include "exception.h"
@@ -204,4 +205,41 @@ void initGLFunctions()
     
     if (!gles || glMajor >= 3 || HAVE_EXT(OES_texture_npot))
         gl.npot_repeat = true;
+
+    /*
+     * Conferencia das funcoes que o passo 3D do Prism acrescentou.
+     *
+     * O carregador acima guarda o que SDL_GL_GetProcAddress devolve, sem
+     * checar: funcao que o driver nao tem vira ponteiro nulo, e chamar
+     * ponteiro nulo derruba o processo na hora, com violacao de acesso e sem
+     * mensagem nenhuma. Como sao doze funcoes novas, cada uma e um jeito de
+     * cair em silencio. Aqui cada ausencia vira uma linha no rastro, com nome.
+     */
+#define PRISM_CHECK_GL(name) \
+    if (!gl.name) { \
+        prismTrace("GL AUSENTE: gl" #name); \
+        prismGLComplete = false; \
+    }
+
+    bool prismGLComplete = true;
+
+    PRISM_CHECK_GL(IsEnabled)
+    PRISM_CHECK_GL(GetBooleanv)
+    PRISM_CHECK_GL(DepthFunc)
+    PRISM_CHECK_GL(DepthMask)
+    PRISM_CHECK_GL(CullFace)
+    PRISM_CHECK_GL(FrontFace)
+    PRISM_CHECK_GL(Uniform3f)
+    PRISM_CHECK_GL(GenRenderbuffers)
+    PRISM_CHECK_GL(DeleteRenderbuffers)
+    PRISM_CHECK_GL(BindRenderbuffer)
+    PRISM_CHECK_GL(RenderbufferStorage)
+    PRISM_CHECK_GL(FramebufferRenderbuffer)
+    PRISM_CHECK_GL(CheckFramebufferStatus)
+
+#undef PRISM_CHECK_GL
+
+    gl.prism3D = prismGLComplete;
+    prismTrace(prismGLComplete ? "GL: as doze funcoes do Prism3D estao todas presentes"
+                               : "GL: falta funcao, o passo 3D fica desligado");
 }

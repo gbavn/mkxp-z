@@ -276,6 +276,8 @@ struct GLFunctions
 
 	bool glsles;
 	bool unpack_subimage;
+	/* Todas as funcoes que o passo 3D precisa foram encontradas. */
+	bool prism3D;
 	bool npot_repeat;
 
 #undef GL_FUN

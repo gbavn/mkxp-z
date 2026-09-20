@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3D000000000000000000001D /* prism-trace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D00000000000000000000A5 /* prism-trace.cpp */; };
+		3D000000000000000000002D /* prism-trace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D00000000000000000000A5 /* prism-trace.cpp */; };
+		3D000000000000000000003D /* prism-trace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D00000000000000000000A5 /* prism-trace.cpp */; };
+		3D000000000000000000004D /* prism-trace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D00000000000000000000A5 /* prism-trace.cpp */; };
 		3D000000000000000000001B /* prism3d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D00000000000000000000A1 /* prism3d.cpp */; };
 		3D000000000000000000001C /* prism3d-binding.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D00000000000000000000A4 /* prism3d-binding.cpp */; };
 		3D000000000000000000002B /* prism3d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D00000000000000000000A1 /* prism3d.cpp */; };
@@ -975,6 +979,7 @@
 		3B10ED872568E95E00372D13 /* gl-fun.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "gl-fun.h"; sourceTree = "<group>"; };
 		3B10ED882568E95E00372D13 /* gl-meta.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "gl-meta.cpp"; sourceTree = "<group>"; };
 		3D00000000000000000000A1 /* prism3d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "prism3d.cpp"; sourceTree = "<group>"; };
+		3D00000000000000000000A5 /* prism-trace.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "prism-trace.cpp"; sourceTree = "<group>"; };
 		3D00000000000000000000A2 /* prism3d.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "prism3d.h"; sourceTree = "<group>"; };
 		3D00000000000000000000A3 /* prism3d-math.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "prism3d-math.h"; sourceTree = "<group>"; };
 		3B10ED892568E95E00372D13 /* tileatlasvx.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tileatlasvx.cpp; sourceTree = "<group>"; };
@@ -1611,6 +1616,7 @@
 				3B10ED872568E95E00372D13 /* gl-fun.h */,
 				3B10ED882568E95E00372D13 /* gl-meta.cpp */,
 				3D00000000000000000000A1 /* prism3d.cpp */,
+				3D00000000000000000000A5 /* prism-trace.cpp */,
 				3D00000000000000000000A2 /* prism3d.h */,
 				3D00000000000000000000A3 /* prism3d-math.h */,
 				3B10ED892568E95E00372D13 /* tileatlasvx.cpp */,
@@ -2318,6 +2324,7 @@
 				3B1C239225A19C600075EF5D /* plane-binding.cpp in Sources */,
 				3B1C239325A19C600075EF5D /* gl-meta.cpp in Sources */,
 				3D000000000000000000001B /* prism3d.cpp in Sources */,
+				3D000000000000000000001D /* prism-trace.cpp in Sources */,
 				3B1C239425A19C600075EF5D /* etc.cpp in Sources */,
 				3B1C239525A19C600075EF5D /* shader.cpp in Sources */,
 				3B1C239625A19C600075EF5D /* tilemap.cpp in Sources */,
@@ -2408,6 +2415,7 @@
 				3BBE87A42705A73400A574AE /* plane-binding.cpp in Sources */,
 				3BBE87A52705A73400A574AE /* gl-meta.cpp in Sources */,
 				3D000000000000000000002B /* prism3d.cpp in Sources */,
+				3D000000000000000000002D /* prism-trace.cpp in Sources */,
 				3BBE87A62705A73400A574AE /* etc.cpp in Sources */,
 				3BBE87A72705A73400A574AE /* shader.cpp in Sources */,
 				3BBE87A82705A73400A574AE /* tilemap.cpp in Sources */,
@@ -2492,6 +2500,7 @@
 				3BC65DAB2584F3AD0063AFF1 /* plane-binding.cpp in Sources */,
 				3BC65DAC2584F3AD0063AFF1 /* gl-meta.cpp in Sources */,
 				3D000000000000000000003B /* prism3d.cpp in Sources */,
+				3D000000000000000000003D /* prism-trace.cpp in Sources */,
 				3BC65DAD2584F3AD0063AFF1 /* etc.cpp in Sources */,
 				3BC65DAE2584F3AD0063AFF1 /* shader.cpp in Sources */,
 				3BC65DAF2584F3AD0063AFF1 /* tilemap.cpp in Sources */,
@@ -2574,6 +2583,7 @@
 				3B10EE052568E96A00372D13 /* plane-binding.cpp in Sources */,
 				3B10EDC72568E95E00372D13 /* gl-meta.cpp in Sources */,
 				3D000000000000000000004B /* prism3d.cpp in Sources */,
+				3D000000000000000000004D /* prism-trace.cpp in Sources */,
 				3B10EDAB2568E95E00372D13 /* etc.cpp in Sources */,
 				3B10EDCA2568E95E00372D13 /* shader.cpp in Sources */,
 				3B10EDCE2568E95E00372D13 /* tilemap.cpp in Sources */,

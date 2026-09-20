@@ -30,6 +30,8 @@ endif
 if host_system == 'windows'
     bz2 = dependency('bzip2', static: build_static)
     iconv = compilers['cpp'].find_library('iconv', static: build_static)
+    # dbghelp: o gravador de minidump do rastro de diagnostico (prism-trace.cpp)
+    global_dependencies += compilers['cpp'].find_library('dbghelp')
 else
     bz2 = compilers['cpp'].find_library('bz2')
     # FIXME: Specifically asking for static doesn't work if iconv isn't
@@ -153,6 +155,7 @@ main_source = files(
     'display/gl/gl-fun.cpp',
     'display/gl/gl-meta.cpp',
     'display/gl/prism3d.cpp',
+    'util/prism-trace.cpp',
     'display/gl/glstate.cpp',
     'display/gl/scene.cpp',
     'display/gl/shader.cpp',

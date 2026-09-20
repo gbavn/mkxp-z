@@ -27,6 +27,7 @@
 #include "bitmap.h"
 #include "config.h"
 #include "debugwriter.h"
+#include "prism-trace.h"
 #include "disposable.h"
 #include "etc.h"
 #include "etc-internal.h"
@@ -457,7 +458,7 @@ struct PingPong {
     PingPong(int screenW, int screenH)
     : depthSupported(checkDepthSupport()),
       srcInd(0), dstInd(1), screenW(screenW), screenH(screenH) {
-        Debug() << "Prism3D: PingPong nasce em" << screenW << "x" << screenH;
+        prismTrace("F1: PingPong nascendo");
         for (int i = 0; i < 2; ++i) {
             TEXFBO::init(rt[i]);
             TEXFBO::allocEmpty(rt[i], screenW, screenH);
@@ -506,13 +507,9 @@ struct PingPong {
      * antes de qualquer uso. Sem elas o jogo roda igual, so sem o passo 3D.
      */
     static bool checkDepthSupport() {
-        const bool ok = gl.GenRenderbuffers && gl.DeleteRenderbuffers &&
-                        gl.BindRenderbuffer && gl.RenderbufferStorage &&
-                        gl.FramebufferRenderbuffer && gl.CheckFramebufferStatus;
-
-        Debug() << "Prism3D: funcoes de renderbuffer" << (ok ? "presentes"
-                                                             : "AUSENTES");
-        return ok;
+        /* A conferencia de verdade esta em initGLFunctions, que olha as doze
+           funcoes de uma vez e registra cada ausencia pelo nome. */
+        return gl.prism3D;
     }
     
     TEXFBO &backBuffer() { return rt[srcInd]; }
@@ -521,7 +518,7 @@ struct PingPong {
     
     /* Better not call this during render cycles */
     void resize(int width, int height) {
-        Debug() << "Prism3D: PingPong redimensiona para" << width << "x" << height;
+        prismTrace("R: PingPong redimensionando");
         screenW = width;
         screenH = height;
         

@@ -55,6 +55,9 @@ jobs:
           meson setup build
           cd build
           ninja
+          # Copia com simbolos, antes do strip. Sem ela um endereco de crash
+          # nao resolve para funcao nenhuma, e o minidump fica ilegivel.
+          cp ./mkxp-z.exe ./mkxp-z-symbols.exe
           strip ./mkxp-z.exe
 
       - name: Prepare archive
@@ -67,6 +70,7 @@ jobs:
           cp -r ../../windows/build-mingw64/lib/ruby/3.1.0 .
           mv ./3.1.0 ./stdlib
           cp ../mkxp-z.exe .
+          cp ../mkxp-z-symbols.exe .
           cp ../../mkxp.json .
           cp -r ../../scripts .
           cp ../../assets/LICENSE.mkxp-z-with-https.txt .

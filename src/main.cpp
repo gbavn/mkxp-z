@@ -41,6 +41,7 @@
 #include "sharedstate.h"
 #include "eventthread.h"
 #include "util/debugwriter.h"
+#include "util/prism-trace.h"
 #include "util/exception.h"
 #include "display/gl/gl-debug.h"
 #include "display/gl/gl-fun.h"
@@ -118,6 +119,7 @@ static SDL_GLContext initGL(SDL_Window *win, Config &conf,
                             RGSSThreadData *threadData);
 
 int rgssThreadFun(void *userdata) {
+  prismTrace("D: thread do RGSS comecou");
   RGSSThreadData *threadData = static_cast<RGSSThreadData *>(userdata);
 
 #ifdef MKXPZ_INIT_GL_LATER
@@ -125,6 +127,7 @@ int rgssThreadFun(void *userdata) {
       initGL(threadData->window, threadData->config, threadData);
   if (!threadData->glContext)
     return 0;
+  prismTrace("E: contexto de OpenGL pronto");
 #else
   SDL_GL_MakeCurrent(threadData->window, threadData->glContext);
 #endif
@@ -153,7 +156,9 @@ int rgssThreadFun(void *userdata) {
   alcMakeContextCurrent(alcCtx);
 
   try {
+    prismTrace("F: vai criar o SharedState (Graphics, FBOs)");
     SharedState::initInstance(threadData);
+    prismTrace("G: SharedState criado");
   } catch (const Exception &exc) {
     rgssThreadError(threadData, exc.msg);
     alcDestroyContext(alcCtx);
@@ -162,7 +167,9 @@ int rgssThreadFun(void *userdata) {
   }
 
   /* Start script execution */
+  prismTrace("H: vai executar os scripts Ruby");
   scriptBinding->execute();
+  prismTrace("I: scripts terminaram");
 
   threadData->rqTermAck.set();
   threadData->ethread->requestTerminate();
@@ -216,6 +223,8 @@ static void setupWindowIcon(const Config &conf, SDL_Window *win) {
 }
 
 int main(int argc, char *argv[]) {
+    prismInstallCrashHandler();
+    prismTrace("A: main entrou");
     SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
     SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
 
@@ -252,29 +261,11 @@ int main(int argc, char *argv[]) {
 #endif
     
     /* now we load the config */
+    prismTrace("A2: vai ler a configuracao");
     Config conf;
     conf.read(argc, argv);
 
-    /*
-     * Diagnostico em arquivo.
-     *
-     * No Windows o executavel e do subsistema grafico (meson.build:195), entao
-     * ele nasce sem console e o redirecionamento do cmd nao pega a saida. Com
-     * MKXPZ_LOG_FILE apontando para um caminho, tudo que o Debug() escreve em
-     * std::cerr vai para la. Sem buffer, senao um crash leva junto justamente
-     * as ultimas linhas, que sao as que interessam.
-     */
-    {
-        const char *logPath = SDL_getenv("MKXPZ_LOG_FILE");
-        if (logPath && *logPath) {
-            if (freopen(logPath, "w", stderr)) {
-                setvbuf(stderr, 0, _IONBF, 0);
-                /* Com o log em arquivo o console proprio nao entra: ele
-                   reabriria stderr em CONOUT$ e desfaria isto. */
-                conf.winConsole = false;
-            }
-        }
-    }
+    prismTrace("B: configuracao lida");
 
 #if defined(__WIN32__)
     // Create a debug console in debug mode
