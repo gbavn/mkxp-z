@@ -212,7 +212,7 @@ void initGLFunctions()
      * O carregador acima guarda o que SDL_GL_GetProcAddress devolve, sem
      * checar: funcao que o driver nao tem vira ponteiro nulo, e chamar
      * ponteiro nulo derruba o processo na hora, com violacao de acesso e sem
-     * mensagem nenhuma. Como sao doze funcoes novas, cada uma e um jeito de
+     * mensagem nenhuma. Como sao treze funcoes novas, cada uma e um jeito de
      * cair em silencio. Aqui cada ausencia vira uma linha no rastro, com nome.
      */
 #define PRISM_CHECK_GL(name) \
@@ -236,10 +236,11 @@ void initGLFunctions()
     PRISM_CHECK_GL(RenderbufferStorage)
     PRISM_CHECK_GL(FramebufferRenderbuffer)
     PRISM_CHECK_GL(CheckFramebufferStatus)
+    PRISM_CHECK_GL(CopyTexSubImage2D)
 
 #undef PRISM_CHECK_GL
 
     gl.prism3D = prismGLComplete;
-    prismTrace(prismGLComplete ? "GL: as doze funcoes do Prism3D estao todas presentes"
+    prismTrace(prismGLComplete ? "GL: as treze funcoes do Prism3D estao todas presentes"
                                : "GL: falta funcao, o passo 3D fica desligado");
 }

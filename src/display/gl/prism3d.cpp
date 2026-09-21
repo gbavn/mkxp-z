@@ -72,6 +72,10 @@ uniform vec3 color;
 uniform sampler2D tex;
 uniform float textured;
 
+/* O chao e a imagem do mapa ja pronta, com a arte e a sombra que o tileset
+   tem. Iluminar de novo escureceria o desenho do jogo. */
+uniform float unlit;
+
 varying vec3 vNormal;
 varying vec2 vUv;
 
@@ -87,11 +91,13 @@ void main() {
     float alpha = mix(1.0, amostra.a, textured);
 
     /* Recorte em vez de mistura: textura de jogo de DS usa transparencia
-       binaria, e misturar exigiria ordenar por profundidade a cada quadro. */
-    if (alpha < 0.5)
+       binaria, e misturar exigiria ordenar por profundidade a cada quadro.
+       No chao nao vale: o alfa do alvo copiado nao quer dizer nada. */
+    if (unlit < 0.5 && alpha < 0.5)
         discard;
 
-    gl_FragColor = vec4(base * (0.45 + 0.55 * lambert), 1.0);
+    float sombra = mix(0.45 + 0.55 * lambert, 1.0, unlit);
+    gl_FragColor = vec4(base * sombra, 1.0);
 }
 )";
 
@@ -563,6 +569,7 @@ bool Renderer::init() {
     uniformViewProjection = gl.GetUniformLocation(program, "viewProjection");
     uniformColor = gl.GetUniformLocation(program, "color");
     uniformTextured = gl.GetUniformLocation(program, "textured");
+    uniformUnlit = gl.GetUniformLocation(program, "unlit");
 
     /* A textura de um pixel branco. Existe para o caminho sem textura usar o
        mesmo shader: sem ela seriam dois programas, ou um ramo no shader, que
@@ -640,6 +647,58 @@ bool Renderer::init() {
     vao.ibo = ibo;
     GLMeta::vaoInit(vao);
 
+    /*
+     * O quadrado do chao, no plano Y zero, de zero a um nos dois eixos.
+     *
+     * A UV ja vai embutida e invertida no eixo vertical de proposito: a
+     * textura copiada do alvo tem a origem no canto de baixo, como todo
+     * framebuffer de OpenGL, enquanto a fileira de cima da tela e o Z menor
+     * do mundo. Sem essa inversao o mapa sairia espelhado no sentido norte
+     * e sul.
+     */
+    {
+        /*
+         * O plano passa um pouco do quadro capturado, de proposito.
+         *
+         * O chao fica inclinado em relacao a camera, entao a profundidade dele
+         * encurta na projecao e sobra faixa vazia em cima e embaixo. Medindo
+         * com inclinacao de 65 graus, a sobra e de uns 19 pixels de cada lado.
+         * Esticar o plano e deixar a textura grampeada na borda preenche isso
+         * arrastando a fileira de fora, o que le como chao continuando. Faixa
+         * preta perto do jogador leria como defeito.
+         */
+        const float sobraZ = 0.15f, sobraX = 0.05f;
+        struct Vertex { float x, y, z, nx, ny, nz, u, v; };
+        const Vertex quad[4] = {
+            { -sobraX, 0, -sobraZ,  0, 1, 0,  -sobraX, 1 + sobraZ },
+            { 1 + sobraX, 0, -sobraZ,  0, 1, 0,  1 + sobraX, 1 + sobraZ },
+            { 1 + sobraX, 0, 1 + sobraZ,  0, 1, 0,  1 + sobraX, -sobraZ },
+            { -sobraX, 0, 1 + sobraZ,  0, 1, 0,  -sobraX, -sobraZ },
+        };
+        const GLushort idx[6] = { 0, 1, 2, 0, 2, 3 };
+
+        groundVbo = VBO::gen();
+        groundIbo = IBO::gen();
+        VBO::bind(groundVbo);
+        VBO::uploadData(sizeof(quad), quad);
+        IBO::bind(groundIbo);
+        IBO::uploadData(sizeof(idx), idx);
+        VBO::unbind();
+        IBO::unbind();
+
+        static const VertexAttribute quadAttribs[] = {
+            { Shader::Position, 3, GL_FLOAT, (const GLvoid *)0 },
+            { Shader::TexCoord, 3, GL_FLOAT, (const GLvoid *)(sizeof(float) * 3) },
+            { Shader::Color,    2, GL_FLOAT, (const GLvoid *)(sizeof(float) * 6) }
+        };
+        groundVao.attr = quadAttribs;
+        groundVao.attrCount = 3;
+        groundVao.vertSize = sizeof(Vertex);
+        groundVao.vbo = groundVbo;
+        groundVao.ibo = groundIbo;
+        GLMeta::vaoInit(groundVao);
+    }
+
     prismTrace("RENDER: shader e cubo prontos");
     return true;
 }
@@ -670,6 +729,13 @@ void Renderer::fini() {
         return;
 
     TEX::del(blank);
+    if (groundTexW > 0)
+        TEX::del(groundTex);
+    groundTexW = groundTexH = 0;
+
+    GLMeta::vaoFini(groundVao);
+    IBO::del(groundIbo);
+    VBO::del(groundVbo);
 
     GLMeta::vaoFini(vao);
     IBO::del(ibo);
@@ -695,8 +761,177 @@ void Renderer::setMapCamera(float scrollX, float scrollZ, float tilePixels,
     mapCamera = true;
 }
 
+void Renderer::setMapPerspective(float pitchDegrees, float fovDegrees,
+                                 float distance) {
+    /* 89 e nao 90: a prumo o alvo fica em cima do olho e o vetor de cima fica
+       paralelo a direcao de visao, o que quebra o lookAt. */
+    perspPitch = pitchDegrees < 1.0f ? 1.0f
+               : (pitchDegrees > 89.0f ? 89.0f : pitchDegrees);
+    perspFov = fovDegrees > 0.5f ? fovDegrees : 0.5f;
+    /* Zero ou menos quer dizer automatica, que e o caso normal. */
+    perspDistance = distance;
+    mapPerspective = true;
+}
+
+/*
+** A matriz da camera do mapa, uma so para tudo.
+**
+** Chao, objeto e `project` precisam concordar na virgula, entao nenhum deles
+** monta matriz por conta propria: os tres chamam daqui.
+*/
+Mat4 Renderer::mapViewProjection(int width, int height) const {
+    const float tilesWide = (float)width / mapTilePixels;
+    const float tilesHigh = (float)height / mapTilePixels;
+
+    if (!mapPerspective) {
+        /* Alcance folgado: o maior mapa do RPG Maker XP tem 500 tiles de
+           lado, e a profundidade so precisa caber nele. */
+        return Mat4::mapOblique(tilesWide, tilesHigh,
+                                mapScrollX, mapScrollZ, mapHeight, 1024.0f);
+    }
+
+    /* O alvo e o centro da area visivel do mapa, no chao. A camera fica ao sul
+       dele, que e o Z maior, e acima. Olhar do sul e o que poe o horizonte no
+       alto da tela e mantem o norte ao fundo, como no mapa 2D. */
+    const Vec3 alvo(mapScrollX + tilesWide * 0.5f, 0.0f,
+                    mapScrollZ + tilesHigh * 0.5f);
+
+    const float aspect = height > 0 ? (float)width / (float)height : 1.0f;
+    const float meioFov = perspFov * 0.5f * 3.14159265f / 180.0f;
+
+    /*
+     * A distancia sai do campo de visao, e nao de um numero solto.
+     *
+     * O eixo X do mapa fica perpendicular a direcao de visao, porque a camera
+     * so se inclina, nunca gira de lado. Entao ele nao sofre encurtamento, e a
+     * largura visivel na altura do alvo e 2 * d * tan(fov/2) * proporcao.
+     * Igualando isso a largura do quadro, a fileira do meio encosta nas duas
+     * bordas da tela em qualquer campo de visao.
+     *
+     * E isso que faz perspectiva fraca funcionar como botao: com `fov` pequeno
+     * a camera se afasta sozinha e a imagem tende a de hoje, em vez de o chao
+     * encolher no meio da tela.
+     */
+    float distancia = perspDistance;
+    if (distancia <= 0.0f)
+        distancia = tilesWide / (2.0f * std::tan(meioFov) * aspect);
+
+    const float rad = perspPitch * 3.14159265f / 180.0f;
+    const Vec3 olho(alvo.x,
+                    alvo.y + distancia * std::sin(rad),
+                    alvo.z + distancia * std::cos(rad));
+
+    /* O plano de fundo acompanha a distancia, senao camera longe, que e o que
+       perspectiva fraca pede, corta o mapa inteiro. */
+    const Mat4 projecao = Mat4::perspective(perspFov * 3.14159265f / 180.0f,
+                                            aspect, 0.1f, distancia * 4.0f + 64.0f);
+    return projecao * Mat4::lookAt(olho, alvo, Vec3(0, 1, 0));
+}
+
+bool Renderer::project(float x, float y, float z, int width, int height,
+                       float &outX, float &outY, float &outScale) const {
+    const Mat4 m = mapViewProjection(width, height);
+
+    /* Duas projecoes: o ponto, e o mesmo ponto uma unidade mais alto. A
+       distancia entre os dois na tela e a escala ali, que e o que o sprite
+       precisa para encolher com a distancia. */
+    float px[2], py[2];
+    for (int i = 0; i < 2; ++i) {
+        const float vy = y + (float)i;
+        const float cx = m.m[0]*x + m.m[4]*vy + m.m[8]*z  + m.m[12];
+        const float cy = m.m[1]*x + m.m[5]*vy + m.m[9]*z  + m.m[13];
+        const float cw = m.m[3]*x + m.m[7]*vy + m.m[11]*z + m.m[15];
+
+        if (cw <= 0.0001f)
+            return false;
+
+        px[i] = (cx / cw + 1.0f) * 0.5f * (float)width;
+        py[i] = (1.0f - cy / cw) * 0.5f * (float)height;
+    }
+
+    outX = px[0];
+    outY = py[0];
+    outScale = py[0] - py[1];
+    return true;
+}
+
+void Renderer::ensureGroundTexture(int width, int height) {
+    if (groundTexW == width && groundTexH == height)
+        return;
+
+    if (groundTexW > 0)
+        TEX::del(groundTex);
+
+    groundTex = TEX::gen();
+    TEX::bind(groundTex);
+    TEX::allocEmpty(width, height);
+    /* Filtro suave aqui, ao contrario do resto: o chao e o unico lugar em que
+       a imagem e esticada de verdade pela perspectiva, e vizinho mais proximo
+       viraria escada nas fileiras do fundo. */
+    TEX::setSmooth(true);
+    TEX::setRepeat(false);
+
+    groundTexW = width;
+    groundTexH = height;
+}
+
+/*
+** Captura o mapa ja composto e redesenha ele como um plano.
+**
+** Isto so funciona por causa da ordem de z da cena. O TilemapRenderer do
+** Essentials da z zero ao tile de prioridade zero, que e o chao, e z crescente
+** ao resto. Como a cena compoe em ordem de z, um elemento em z 1 desenha num
+** instante em que so o chao foi pintado. A separacao entre chao e coisa alta
+** sai da propria ordenacao, sem reimplementar tilemap nenhum.
+**
+** O preco e que limpar a cor apaga tambem o que estiver abaixo de z zero,
+** como reflexo e panorama.
+*/
+void Renderer::drawGround(int width, int height) {
+    ensureGroundTexture(width, height);
+
+    TEX::bind(groundTex);
+    gl.CopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+
+    /* glClear respeita a tesoura, e o ciclo de desenho deixa ela ligada. */
+    glState.scissorTest.pushSet(false);
+    gl.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    gl.Clear(GL_COLOR_BUFFER_BIT);
+    glState.scissorTest.pop();
+
+    const float tilesWide = (float)width / mapTilePixels;
+    const float tilesHigh = (float)height / mapTilePixels;
+
+    const Mat4 model = Mat4::translation(Vec3(mapScrollX, 0.0f, mapScrollZ)) *
+                       Mat4::scale(Vec3(tilesWide, 1.0f, tilesHigh));
+
+    /* Sem descarte de face: o plano e um so, e errar o lado dele por causa da
+       ordem dos vertices sumiria com o chao inteiro sem dizer por que. */
+    gl.Disable(GL_CULL_FACE);
+
+    gl.UniformMatrix4fv(uniformModel, 1, GL_FALSE, model.m);
+    gl.Uniform3f(uniformColor, 1.0f, 1.0f, 1.0f);
+    gl.Uniform1f(uniformTextured, 1.0f);
+    gl.Uniform1f(uniformUnlit, 1.0f);
+    gl.ActiveTexture(GL_TEXTURE0);
+    TEX::bind(groundTex);
+
+    GLMeta::vaoBind(groundVao);
+    gl.DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+    GLMeta::vaoUnbind(groundVao);
+
+    gl.Uniform1f(uniformUnlit, 0.0f);
+    gl.Enable(GL_CULL_FACE);
+}
+
 void Renderer::draw(int width, int height, bool clearDepth) {
-    if (!program || (boxes.empty() && placements.empty()))
+    if (!program)
+        return;
+
+    /* O chao e desenho por si so: ele aparece mesmo sem objeto nenhum na
+       cena. */
+    const bool comChao = groundEnabled && mapCamera && mapPerspective;
+    if (boxes.empty() && placements.empty() && !comChao)
         return;
 
     /*
@@ -746,12 +981,7 @@ void Renderer::draw(int width, int height, bool clearDepth) {
 
     if (mapCamera)
     {
-        /* Alcance folgado: o maior mapa do RPG Maker XP tem 500 tiles de
-           lado, e a profundidade so precisa caber nele. */
-        viewProjection = Mat4::mapOblique((float)width / mapTilePixels,
-                                          (float)height / mapTilePixels,
-                                          mapScrollX, mapScrollZ,
-                                          mapHeight, 1024.0f);
+        viewProjection = mapViewProjection(width, height);
     }
     else
     {
@@ -764,6 +994,11 @@ void Renderer::draw(int width, int height, bool clearDepth) {
     glState.program.pushSet(program);
     gl.UniformMatrix4fv(uniformViewProjection, 1, GL_FALSE, viewProjection.m);
     gl.Uniform1i(gl.GetUniformLocation(program, "tex"), 0);
+    gl.Uniform1f(uniformUnlit, 0.0f);
+
+    /* O chao vem antes de tudo: ele e o fundo em que o resto pisa. */
+    if (comChao)
+        drawGround(width, height);
 
     /* As caixas, que nunca tem textura. */
     if (!boxes.empty()) {

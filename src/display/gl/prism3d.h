@@ -116,6 +116,34 @@ public:
                       float heightOnScreen);
 
     /**
+     * Troca a projecao paralela do mapa por perspectiva de verdade.
+     *
+     * A camera fica ao sul e acima do centro da area visivel, olhando para
+     * ele. `pitchDegrees` e a inclinacao a partir do horizonte, entao 90 seria
+     * de cima a prumo, e por isso fica de fora. `distance` e em tiles.
+     *
+     * Nao existe mistura entre as duas projecoes, porque misturar matriz e
+     * matematicamente torto. Perspectiva fraca sai de graca por construcao:
+     * `fov` pequeno com `distance` grande tende a projecao paralela.
+     */
+    void setMapPerspective(float pitchDegrees, float fovDegrees, float distance);
+    void setMapPerspectiveOff() { mapPerspective = false; }
+
+    /** Liga o plano de chao, que captura o mapa ja composto e o reprojeta. */
+    void setGround(bool on) { groundEnabled = on; }
+
+    /**
+     * Onde um ponto do mundo cai na tela, e quanto vale uma unidade de altura
+     * ali, em pixel.
+     *
+     * E o que o Ruby precisa para reposicionar sprite: o personagem continua
+     * sendo um cartao 2D, so que colocado pela camera 3D. Devolve false se o
+     * ponto estiver atras da camera.
+     */
+    bool project(float x, float y, float z, int width, int height,
+                 float &outX, float &outY, float &outScale) const;
+
+    /**
      * Desenha, dentro do ciclo de desenho do motor.
      *
      * `width` e `height` sao os do alvo corrente, so para a proporcao da
@@ -142,11 +170,29 @@ private:
     int uniformViewProjection = -1;
     int uniformColor = -1;
     int uniformTextured = -1;
+    int uniformUnlit = -1;
+
+    /* O quadrado unitario do chao, no plano Y zero. */
+    GLMeta::VAO groundVao;
+    VBO::ID groundVbo;
+    IBO::ID groundIbo;
+
+    /* A copia do mapa ja composto, do tamanho do alvo. */
+    TEX::ID groundTex;
+    int groundTexW = 0, groundTexH = 0;
+    bool groundEnabled = false;
+
+    /** A matriz que vale para tudo: chao, objetos e `project`. */
+    Mat4 mapViewProjection(int width, int height) const;
+    void ensureGroundTexture(int width, int height);
+    void drawGround(int width, int height);
 
     Mat4 view = Mat4::identity();
     bool mapCamera = false;
     float mapScrollX = 0.0f, mapScrollZ = 0.0f;
     float mapTilePixels = 32.0f, mapHeight = 1.0f;
+    bool mapPerspective = false;
+    float perspPitch = 60.0f, perspFov = 30.0f, perspDistance = 14.0f;
     float fov = 45.0f;
     Vec3 eye = Vec3(0, 3, 8);
     Vec3 target = Vec3(0, 0, 0);
@@ -178,6 +224,10 @@ public:
 
     /* Nao ha nada preguicoso para resolver antes de ler propriedade daqui. */
     void aboutToAccess() const override {}
+
+    /* O tamanho do alvo, que o binding precisa para projetar ponto. */
+    int screenWidth() const { return width; }
+    int screenHeight() const { return height; }
 
 protected:
     void draw() override;

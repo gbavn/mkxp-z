@@ -7,7 +7,7 @@
 ** caixas, limpar. Nada de arquivo de modelo, material, luz ou colisao. O
 ** caminhao do editor entra como as caixas que ele ja descreve, e so.
 **
-**   Prism3D.start(z = 0)
+**   Prism3D.start(z = 0, viewport = nil)
 **   Prism3D.camera(ex, ey, ez, ax, ay, az, fov)
 **   Prism3D.add_box(x, y, z, larg, alt, prof, yaw, r, g, b)
 **   Prism3D.clear
@@ -15,11 +15,18 @@
 **   Prism3D.visible / Prism3D.visible=
 **   Prism3D.stop
 **
-** O elemento vive enquanto o jogo vive. Ele entra na cena da tela, que o
-** Graphics ja expoe por getScreen(), entao nada aqui precisa de estado global
-** novo no motor.
+** O elemento vive enquanto o jogo vive.
+**
+** Sem viewport ele entra na cena da tela. Com viewport ele entra na cena do
+** proprio viewport, e isso muda tudo: no mkxp-z `Viewport` e ao mesmo tempo
+** uma `Scene`, com lista propria de z, e um `SceneElement` na cena de cima.
+** Os tiles e os personagens do Essentials vivem dentro do viewport do mapa,
+** entao um elemento na cena da tela nunca disputa z com eles, disputa com o
+** viewport inteiro, que desenha de uma vez. Para o objeto 3D passar atras de
+** uma casa, ele precisa estar na mesma lista que ela.
 */
 
+#include "binding-types.h"
 #include "binding-util.h"
 #include "debugwriter.h"
 #include "prism-trace.h"
@@ -27,6 +34,7 @@
 #include <string>
 #include "graphics.h"
 #include "prism3d.h"
+#include "viewport.h"
 #include "sharedstate.h"
 
 static Prism3D::Element *element = 0;
@@ -42,13 +50,19 @@ RB_METHOD(prism3DStart) {
     RB_UNUSED_PARAM;
 
     int z = 0;
-    rb_get_args(argc, argv, "|i", &z RB_ARG_END);
+    VALUE viewportObj = Qnil;
+    rb_get_args(argc, argv, "|io", &z, &viewportObj RB_ARG_END);
 
-    prismTrace("BINDING: start");
+    Scene *cena = shState->graphics().getScreen();
+    if (!NIL_P(viewportObj))
+        cena = getPrivateDataCheck<Viewport>(viewportObj, ViewportType);
+
+    prismTrace(NIL_P(viewportObj) ? "BINDING: start na cena da tela"
+                                  : "BINDING: start dentro de um viewport");
 
     GFX_LOCK;
     if (!element) {
-        element = new Prism3D::Element(*shState->graphics().getScreen(), z);
+        element = new Prism3D::Element(*cena, z);
         if (!element->renderer().init()) {
             delete element;
             element = 0;
@@ -56,6 +70,7 @@ RB_METHOD(prism3DStart) {
             rb_raise(rb_eRuntimeError, "Prism3D: o renderizador nao subiu");
         }
     } else {
+        element->setScene(*cena);
         element->setZ(z);
     }
     GFX_UNLOCK;
@@ -115,6 +130,84 @@ RB_METHOD(prism3DMapCamera) {
     GFX_UNLOCK;
 
     return Qnil;
+}
+
+/*
+ * Troca a projecao paralela do mapa por perspectiva de verdade.
+ *
+ * `pitch` e a inclinacao a partir do horizonte, em graus. `fov` pequeno com
+ * `distancia` grande tende a projecao paralela, entao perspectiva fraca sai
+ * por construcao, sem misturar matriz.
+ */
+RB_METHOD(prism3DPerspective) {
+    RB_UNUSED_PARAM;
+
+    double pitch = 60.0, fov = 30.0, distancia = 14.0;
+    rb_get_args(argc, argv, "|fff", &pitch, &fov, &distancia RB_ARG_END);
+
+    GFX_LOCK;
+    needElement()->renderer().setMapPerspective((float)pitch, (float)fov,
+                                                (float)distancia);
+    GFX_UNLOCK;
+
+    return Qnil;
+}
+
+RB_METHOD(prism3DPerspectiveOff) {
+    RB_UNUSED_PARAM;
+
+    GFX_LOCK;
+    needElement()->renderer().setMapPerspectiveOff();
+    GFX_UNLOCK;
+
+    return Qnil;
+}
+
+/* Liga o plano de chao, que captura o mapa ja composto e o reprojeta. */
+RB_METHOD(prism3DSetGround) {
+    RB_UNUSED_PARAM;
+
+    bool on;
+    rb_get_args(argc, argv, "b", &on RB_ARG_END);
+
+    GFX_LOCK;
+    needElement()->renderer().setGround(on);
+    GFX_UNLOCK;
+
+    return rb_bool_new(on);
+}
+
+/*
+ * Onde um ponto do mundo cai na tela.
+ *
+ * Devolve [x, y, escala], em que a escala e quantos pixels vale uma unidade de
+ * altura naquele ponto. E o que o Ruby precisa para o personagem continuar
+ * sendo um cartao 2D, so que colocado pela camera 3D. Devolve nil se o ponto
+ * estiver atras da camera.
+ */
+RB_METHOD(prism3DProject) {
+    RB_UNUSED_PARAM;
+
+    double x, y, z;
+    rb_get_args(argc, argv, "fff", &x, &y, &z RB_ARG_END);
+
+    Prism3D::Element *el = needElement();
+    float sx = 0, sy = 0, escala = 0;
+
+    GFX_LOCK;
+    const bool ok = el->renderer().project((float)x, (float)y, (float)z,
+                                           el->screenWidth(), el->screenHeight(),
+                                           sx, sy, escala);
+    GFX_UNLOCK;
+
+    if (!ok)
+        return Qnil;
+
+    VALUE saida = rb_ary_new2(3);
+    rb_ary_push(saida, rb_float_new(sx));
+    rb_ary_push(saida, rb_float_new(sy));
+    rb_ary_push(saida, rb_float_new(escala));
+    return saida;
 }
 
 RB_METHOD(prism3DAddBox) {
@@ -298,6 +391,10 @@ void prism3DBindingInit() {
     _rb_define_module_function(module, "stop", prism3DStop);
     _rb_define_module_function(module, "camera", prism3DCamera);
     _rb_define_module_function(module, "map_camera", prism3DMapCamera);
+    _rb_define_module_function(module, "perspective", prism3DPerspective);
+    _rb_define_module_function(module, "perspective_off", prism3DPerspectiveOff);
+    _rb_define_module_function(module, "ground=", prism3DSetGround);
+    _rb_define_module_function(module, "project", prism3DProject);
     _rb_define_module_function(module, "add_box", prism3DAddBox);
     _rb_define_module_function(module, "load_model", prism3DLoadModel);
     _rb_define_module_function(module, "add_model", prism3DAddModel);

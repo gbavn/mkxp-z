@@ -47,6 +47,7 @@ typedef void (APIENTRYP _PFNGLDEPTHMASKPROC) (GLboolean flag);
 typedef void (APIENTRYP _PFNGLCULLFACEPROC) (GLenum mode);
 typedef void (APIENTRYP _PFNGLFRONTFACEPROC) (GLenum mode);
 typedef void (APIENTRYP _PFNGLUNIFORM3FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
+typedef void (APIENTRYP _PFNGLCOPYTEXSUBIMAGE2DPROC) (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
 typedef void (APIENTRYP _PFNGLDISABLEPROC) (GLenum cap);
 typedef void (APIENTRYP _PFNGLSCISSORPROC) (GLint x, GLint y, GLsizei width, GLsizei height);
 typedef void (APIENTRYP _PFNGLVIEWPORTPROC) (GLint x, GLint y, GLsizei width, GLsizei height);
@@ -190,6 +191,7 @@ typedef void (APIENTRYP _PFNGLRELEASESHADERCOMPILERPROC) (void);
 	GL_FUN(BindTexture, _PFNGLBINDTEXTUREPROC) \
 	GL_FUN(TexImage2D, _PFNGLTEXIMAGE2DPROC) \
 	GL_FUN(TexSubImage2D, _PFNGLTEXSUBIMAGE2DPROC) \
+	GL_FUN(CopyTexSubImage2D, _PFNGLCOPYTEXSUBIMAGE2DPROC) \
 	GL_FUN(TexParameteri, _PFNGLTEXPARAMETERIPROC) \
 	GL_FUN(ActiveTexture, _PFNGLACTIVETEXTUREPROC) \
 	GL_FUN(GenerateMipmap, _PFNGLGENERATEMIPMAPPROC) \
