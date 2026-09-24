@@ -34,6 +34,16 @@
 namespace Prism3D {
 
 /*
+** O vertice do chao, com nome proprio.
+**
+** `Vertex` sozinho e o tipo do motor, em `gl/vertex.h`, e ele tem outro
+** tamanho: deixar o struct local dentro da funcao e depois pedir
+** `sizeof(Vertex)` na montagem do VAO pegaria o tipo errado em silencio.
+*/
+struct GroundVertex { float x, y, z, nx, ny, nz, u, v; };
+
+
+/*
 ** Os dois shaders, embutidos.
 **
 ** Embutidos e nao em shader/ porque os shaders do motor passam por um gerador
@@ -658,33 +668,24 @@ bool Renderer::init() {
      */
     {
         /*
-         * O plano passa um pouco do quadro capturado, de proposito.
+         * O plano passa um pouco do quadro capturado, de proposito, e quanto
+         * ele passa e o `setGroundOvershoot`, botao do Ruby.
          *
          * O chao fica inclinado em relacao a camera, entao a profundidade dele
-         * encurta na projecao e sobra faixa vazia em cima e embaixo. Medindo
-         * com inclinacao de 65 graus, a sobra e de uns 19 pixels de cada lado.
-         * Esticar o plano e deixar a textura grampeada na borda preenche isso
-         * arrastando a fileira de fora, o que le como chao continuando. Faixa
-         * preta perto do jogador leria como defeito.
+         * encurta na projecao e sobra faixa vazia em cima e embaixo. Esticar o
+         * plano preenche isso arrastando a fileira de fora, porque a textura
+         * fica grampeada na borda. So que arrastar tem preco: sobre agua a
+         * fileira repetida le como reflexo, e foi o que apareceu no jogo. Daí
+         * o botao, em vez de numero fixo.
          */
-        const float sobraZ = 0.15f, sobraX = 0.05f;
-        struct Vertex { float x, y, z, nx, ny, nz, u, v; };
-        const Vertex quad[4] = {
-            { -sobraX, 0, -sobraZ,  0, 1, 0,  -sobraX, 1 + sobraZ },
-            { 1 + sobraX, 0, -sobraZ,  0, 1, 0,  1 + sobraX, 1 + sobraZ },
-            { 1 + sobraX, 0, 1 + sobraZ,  0, 1, 0,  1 + sobraX, -sobraZ },
-            { -sobraX, 0, 1 + sobraZ,  0, 1, 0,  -sobraX, -sobraZ },
-        };
         const GLushort idx[6] = { 0, 1, 2, 0, 2, 3 };
 
         groundVbo = VBO::gen();
         groundIbo = IBO::gen();
-        VBO::bind(groundVbo);
-        VBO::uploadData(sizeof(quad), quad);
         IBO::bind(groundIbo);
         IBO::uploadData(sizeof(idx), idx);
-        VBO::unbind();
         IBO::unbind();
+        uploadGroundQuad();
 
         static const VertexAttribute quadAttribs[] = {
             { Shader::Position, 3, GL_FLOAT, (const GLvoid *)0 },
@@ -693,7 +694,7 @@ bool Renderer::init() {
         };
         groundVao.attr = quadAttribs;
         groundVao.attrCount = 3;
-        groundVao.vertSize = sizeof(Vertex);
+        groundVao.vertSize = sizeof(GroundVertex);
         groundVao.vbo = groundVbo;
         groundVao.ibo = groundIbo;
         GLMeta::vaoInit(groundVao);
@@ -853,6 +854,35 @@ bool Renderer::project(float x, float y, float z, int width, int height,
     outY = py[0];
     outScale = py[0] - py[1];
     return true;
+}
+
+/*
+** Monta o quadrado do chao com a sobra corrente.
+**
+** Fica em funcao separada porque a sobra virou botao do Ruby: trocar o valor
+** reenvia os quatro vertices, e nao ha nada mais a refazer.
+*/
+void Renderer::uploadGroundQuad() {
+    const float sobraX = groundOvershootX, sobraZ = groundOvershootZ;
+    const GroundVertex quad[4] = {
+        { -sobraX, 0, -sobraZ,  0, 1, 0,  -sobraX, 1 + sobraZ },
+        { 1 + sobraX, 0, -sobraZ,  0, 1, 0,  1 + sobraX, 1 + sobraZ },
+        { 1 + sobraX, 0, 1 + sobraZ,  0, 1, 0,  1 + sobraX, -sobraZ },
+        { -sobraX, 0, 1 + sobraZ,  0, 1, 0,  -sobraX, -sobraZ },
+    };
+
+    VBO::bind(groundVbo);
+    VBO::uploadData(sizeof(quad), quad);
+    VBO::unbind();
+}
+
+void Renderer::setGroundOvershoot(float x, float z) {
+    if (groundOvershootX == x && groundOvershootZ == z)
+        return;
+
+    groundOvershootX = x;
+    groundOvershootZ = z;
+    uploadGroundQuad();
 }
 
 void Renderer::ensureGroundTexture(int width, int height) {

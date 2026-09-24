@@ -142,7 +142,13 @@ RB_METHOD(prism3DMapCamera) {
 RB_METHOD(prism3DPerspective) {
     RB_UNUSED_PARAM;
 
-    double pitch = 60.0, fov = 30.0, distancia = 14.0;
+    /* Distancia zero quer dizer "calcula", que e o caminho normal: o
+       renderizador deriva a distancia do fov para a fileira do meio encostar
+       nas duas bordas da tela. O padrao era 14.0, um valor chumbado que so
+       existia para o primeiro ensaio, e quem chamasse com dois argumentos caia
+       nele sem perceber: era isso que deixava a cena tres vezes maior que o
+       devido, ate o Ruby passar -1.0 na mao para escapar. */
+    double pitch = 60.0, fov = 30.0, distancia = 0.0;
     rb_get_args(argc, argv, "|fff", &pitch, &fov, &distancia RB_ARG_END);
 
     GFX_LOCK;
@@ -175,6 +181,27 @@ RB_METHOD(prism3DSetGround) {
     GFX_UNLOCK;
 
     return rb_bool_new(on);
+}
+
+/*
+ * Quanto o plano de chao passa do quadro capturado, em fracao da tela.
+ *
+ * Os dois valores nao tem resposta certa, e por isso viram botao: sobra demais
+ * arrasta a borda da imagem, e sobre agua isso le como reflexo; sobra de menos
+ * deixa faixa vazia no horizonte e cunha vazia nos cantos de baixo. Com o botao
+ * aqui, achar o ponto certo e um ensaio em Ruby e nao uma recompilacao.
+ */
+RB_METHOD(prism3DGroundOvershoot) {
+    RB_UNUSED_PARAM;
+
+    double x = 0.05, z = 0.15;
+    rb_get_args(argc, argv, "|ff", &x, &z RB_ARG_END);
+
+    GFX_LOCK;
+    needElement()->renderer().setGroundOvershoot((float)x, (float)z);
+    GFX_UNLOCK;
+
+    return Qnil;
 }
 
 /*
@@ -394,6 +421,7 @@ void prism3DBindingInit() {
     _rb_define_module_function(module, "perspective", prism3DPerspective);
     _rb_define_module_function(module, "perspective_off", prism3DPerspectiveOff);
     _rb_define_module_function(module, "ground=", prism3DSetGround);
+    _rb_define_module_function(module, "ground_overshoot", prism3DGroundOvershoot);
     _rb_define_module_function(module, "project", prism3DProject);
     _rb_define_module_function(module, "add_box", prism3DAddBox);
     _rb_define_module_function(module, "load_model", prism3DLoadModel);

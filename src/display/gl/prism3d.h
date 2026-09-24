@@ -133,6 +133,17 @@ public:
     void setGround(bool on) { groundEnabled = on; }
 
     /**
+     * Quanto o plano de chao passa do quadro capturado, em fracao da tela.
+     *
+     * Vira botao do Ruby porque os dois valores nao tem resposta certa: sobra
+     * demais arrasta a borda da imagem e sobre agua isso le como reflexo, sobra
+     * de menos deixa faixa vazia no horizonte e cunha vazia nos cantos de
+     * baixo. Ajustar sem recompilar o motor e a diferenca entre medir e
+     * adivinhar.
+     */
+    void setGroundOvershoot(float x, float z);
+
+    /**
      * Onde um ponto do mundo cai na tela, e quanto vale uma unidade de altura
      * ali, em pixel.
      *
@@ -181,10 +192,12 @@ private:
     TEX::ID groundTex;
     int groundTexW = 0, groundTexH = 0;
     bool groundEnabled = false;
+    float groundOvershootX = 0.05f, groundOvershootZ = 0.15f;
 
     /** A matriz que vale para tudo: chao, objetos e `project`. */
     Mat4 mapViewProjection(int width, int height) const;
     void ensureGroundTexture(int width, int height);
+    void uploadGroundQuad();
     void drawGround(int width, int height);
 
     Mat4 view = Mat4::identity();
